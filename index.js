@@ -8,7 +8,7 @@ app.use(cors());
 
 const TELEGRAM_API_URL = 'https://api.telegram.org';
 const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
+const webAppUrl = 'https://telegram-h1hrf5b5u-sargaharreys-projects.vercel.app/'; // Replace with the actual URL of your React app
 
 
 
