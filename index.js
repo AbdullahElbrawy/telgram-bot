@@ -7,15 +7,14 @@ const sqlite3 = require('sqlite3').verbose();
 // Initialize Express app
 const app = express();
 app.use(cors());
-const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+app.use(express.json()); // Add this line to parse JSON request bodies
+
+const BOT_TOKEN = 'your_telegram_bot_token'; // Replace with your Telegram bot token
 const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
-
-
 
 // Initialize Telegram bot
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-// Telegram bot setup
 // Setup SQLite database
 const db = new sqlite3.Database(':memory:'); // Use an in-memory database for this example
 
@@ -46,6 +45,23 @@ bot.onText(/\/start/, (msg) => {
     });
 });
 
+// Endpoint to receive chat ID
+app.post('/api/sendChatId', (req, res) => {
+    const { username } = req.body;
+
+    db.get("SELECT chat_id FROM users WHERE username = ?", [username], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to retrieve user data' });
+        }
+        if (!row) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const chatId = row.chat_id;
+        res.json({ chatId: chatId });
+    });
+});
+
 // Get user data endpoint
 app.get('/data/:username', (req, res) => {
     const username = req.params.username;
@@ -59,11 +75,11 @@ app.get('/data/:username', (req, res) => {
         }
 
         const chatId = row.chat_id;
-        axios.get(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
+        axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
             .then(userInfoResponse => {
                 const userInfo = userInfoResponse.data.result;
 
-                axios.get(`${TELEGRAM_API_URL}/bot${BOT_TOKEN}/getUpdates`)
+                axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
                     .then(updatesResponse => {
                         const updates = updatesResponse.data.result;
                         const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
