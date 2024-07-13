@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const TelegramBot = require('node-telegram-bot-api');
 const sqlite3 = require('sqlite3').verbose();
+const request = require('request');
 
 // Initialize Express app
 const app = express();
@@ -20,6 +21,48 @@ const db = new sqlite3.Database(':memory:'); // Use an in-memory database for th
 
 // Create users table
 db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER)");
+
+// Function to get the latest message and detect the username
+const detectUsername = () => {
+    axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
+        .then(response => {
+            const updates = response.data.result;
+            const lastUpdate = updates[updates.length - 1];
+            const chatId = lastUpdate.message.chat.id;
+            const username = lastUpdate.message.from.username;
+
+            if (username) {
+                // Store username and chatId in the database
+                db.run("INSERT OR REPLACE INTO users (username, chat_id) VALUES (?, ?)", [username, chatId], (err) => {
+                    if (err) {
+                        return console.error('Failed to store user data:', err);
+                    }
+                    console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
+                    
+                    // Send the /start command with the detected username
+                    const startMessage = `/start ${username}`;
+                    request.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        json: {
+                            chat_id: chatId,
+                            text: startMessage
+                        }
+                    }, (error, response, body) => {
+                        if (error) {
+                            console.error('Failed to send /start command:', error);
+                        } else {
+                            console.log('Successfully sent /start command:', body);
+                        }
+                    });
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching updates from Telegram:', error);
+        });
+};
+
+// Detect username when the server starts
+detectUsername();
 
 // Handle /start command
 bot.onText(/\/start (.+)/, (msg, match) => {
