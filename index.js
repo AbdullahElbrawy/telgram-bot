@@ -12,6 +12,9 @@ const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the a
 
 
 
+// Initialize Telegram bot
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
 // Telegram bot setup
 // Setup SQLite database
 const db = new sqlite3.Database(':memory:'); // Use an in-memory database for this example
