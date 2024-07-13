@@ -2,11 +2,11 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const TelegramBot = require('node-telegram-bot-api');
+const sqlite3 = require('sqlite3').verbose();
 
+// Initialize Express app
 const app = express();
 app.use(cors());
-        
-const TELEGRAM_API_URL = 'https://api.telegram.org';
 const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
 const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
 
