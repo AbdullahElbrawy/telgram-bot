@@ -1,5 +1,4 @@
 // 6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -30,32 +29,34 @@ const detectUsername = () => {
         .then(response => {
             const updates = response.data.result;
             const lastUpdate = updates[updates.length - 1];
-            const chatId = lastUpdate.message.chat.id;
-            const username = lastUpdate.message.from.username;
+            if (lastUpdate && lastUpdate.message) {
+                const chatId = lastUpdate.message.chat.id;
+                const username = lastUpdate.message.from.username;
 
-            if (username) {
-                // Store username and chatId in the database
-                db.run("INSERT OR REPLACE INTO users (username, chat_id) VALUES (?, ?)", [username, chatId], (err) => {
-                    if (err) {
-                        return console.error('Failed to store user data:', err);
-                    }
-                    console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
-                    
-                    // Send the /start command with the detected username
-                    const startMessage = `/start ${username}`;
-                    request.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                        json: {
-                            chat_id: chatId,
-                            text: startMessage
+                if (username) {
+                    // Store username and chatId in the database
+                    db.run("INSERT OR REPLACE INTO users (username, chat_id) VALUES (?, ?)", [username, chatId], (err) => {
+                        if (err) {
+                            return console.error('Failed to store user data:', err);
                         }
-                    }, (error, response, body) => {
-                        if (error) {
-                            console.error('Failed to send /start command:', error);
-                        } else {
-                            console.log('Successfully sent /start command:', body);
-                        }
+                        console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
+                        
+                        // Send the /start command with the detected username
+                        const startMessage = `/start ${username}`;
+                        request.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                            json: {
+                                chat_id: chatId,
+                                text: startMessage
+                            }
+                        }, (error, response, body) => {
+                            if (error) {
+                                console.error('Failed to send /start command:', error);
+                            } else {
+                                console.log('Successfully sent /start command:', body);
+                            }
+                        });
                     });
-                });
+                }
             }
         })
         .catch(error => {
@@ -67,9 +68,9 @@ const detectUsername = () => {
 detectUsername();
 
 // Handle /start command
-bot.onText(/\/start (.+)/, (msg, match) => {
+bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
-    const username = match[1]; // Extract the username from the command
+    const username = msg.from.username;
 
     const message = `Hello ${username}, click the button below to open the web app.`;
 
@@ -88,12 +89,6 @@ bot.onText(/\/start (.+)/, (msg, match) => {
             ]
         }
     });
-});
-
-// Handle /restart command
-bot.onText(/\/restart/, (msg) => {
-    detectUsername();
-    bot.sendMessage(msg.chat.id, 'Restarting the detection process...');
 });
 
 // Endpoint to receive chat ID
