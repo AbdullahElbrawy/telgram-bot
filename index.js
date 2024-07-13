@@ -21,61 +21,17 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const db = new sqlite3.Database(':memory:'); // Use an in-memory database for this example
 
 // Create users table
-db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER)");
-
-// Function to get the latest message and detect the username
-const detectUsername = () => {
-    axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
-        .then(response => {
-            const updates = response.data.result;
-            const lastUpdate = updates[updates.length - 1];
-            if (lastUpdate && lastUpdate.message) {
-                const chatId = lastUpdate.message.chat.id;
-                const username = lastUpdate.message.from.username;
-
-                if (username) {
-                    // Store username and chatId in the database
-                    db.run("INSERT OR REPLACE INTO users (username, chat_id) VALUES (?, ?)", [username, chatId], (err) => {
-                        if (err) {
-                            return console.error('Failed to store user data:', err);
-                        }
-                        console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
-                        
-                        // Send the /start command with the detected username
-                        const startMessage = `/start ${username}`;
-                        request.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-                            json: {
-                                chat_id: chatId,
-                                text: startMessage
-                            }
-                        }, (error, response, body) => {
-                            if (error) {
-                                console.error('Failed to send /start command:', error);
-                            } else {
-                                console.log('Successfully sent /start command:', body);
-                            }
-                        });
-                    });
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching updates from Telegram:', error);
-        });
-};
-
-// Detect username when the server starts
-detectUsername();
+db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
 
 // Handle /start command
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const username = msg.from.username;
+    const username = match[1]; // Extract the username from the command
 
     const message = `Hello ${username}, click the button below to open the web app.`;
 
     // Store username and chatId in the database
-    db.run("INSERT OR REPLACE INTO users (username, chat_id) VALUES (?, ?)", [username, chatId], (err) => {
+    db.run("INSERT OR REPLACE INTO users (username, chat_id, points) VALUES (?, ?, COALESCE((SELECT points FROM users WHERE username = ?), 0))", [username, chatId, username], (err) => {
         if (err) {
             return console.error('Failed to store user data:', err);
         }
@@ -112,7 +68,7 @@ app.post('/api/sendChatId', (req, res) => {
 app.get('/data/:username', (req, res) => {
     const username = req.params.username;
 
-    db.get("SELECT chat_id FROM users WHERE username = ?", [username], (err, row) => {
+    db.get("SELECT chat_id, points FROM users WHERE username = ?", [username], (err, row) => {
         if (err) {
             return res.status(500).json({ error: 'Failed to retrieve user data' });
         }
@@ -136,7 +92,7 @@ app.get('/data/:username', (req, res) => {
                         const data = {
                             username: userInfo.username,
                             accountAge: accountAge,
-                            points: calculatePoints(accountAge),
+                            points: row.points,
                             catsCount: 707,
                             community: { name: 'CATS COMMUNITY', bonus: 100 },
                             leaderboard: leaderboard,
@@ -156,6 +112,16 @@ app.get('/data/:username', (req, res) => {
     });
 });
 
+// Leaderboard endpoint
+app.get('/leaderboard', (req, res) => {
+    db.all("SELECT username, points FROM users ORDER BY points DESC", [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
+        }
+        res.json(rows);
+    });
+});
+
 const calculateAccountAge = (firstMessageDate) => {
     const firstMessageTimestamp = firstMessageDate * 1000;
     const accountCreationDate = new Date(firstMessageTimestamp);
@@ -163,14 +129,6 @@ const calculateAccountAge = (firstMessageDate) => {
     const ageInMilliseconds = currentDate - accountCreationDate;
     const ageInYears = ageInMilliseconds / (1000 * 60 * 60 * 24 * 365);
     return `${Math.floor(ageInYears)} years`;
-};
-
-const calculatePoints = (accountAge) => {
-    const ageInYears = parseInt(accountAge);
-    if (ageInYears < 1) return 10;
-    if (ageInYears < 2) return 20;
-    if (ageInYears < 3) return 30;
-    return 50;
 };
 
 const calculateLeaderboard = (updates) => {
