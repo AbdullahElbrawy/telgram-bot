@@ -7,7 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 // Initialize Express app
 const app = express();
 app.use(cors());
-app.use(express.json()); // Add this line to parse JSON request bodies
+app.use(express.json());
 
 const BOT_TOKEN = 'your_telegram_bot_token'; // Replace with your Telegram bot token
 const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
@@ -22,9 +22,9 @@ const db = new sqlite3.Database(':memory:'); // Use an in-memory database for th
 db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER)");
 
 // Handle /start command
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
-    const username = msg.from.username;
+    const username = match[1]; // Extract the username from the command
 
     const message = `Hello ${username}, click the button below to open the web app.`;
 
@@ -111,7 +111,7 @@ app.get('/data/:username', (req, res) => {
 });
 
 const calculateAccountAge = (firstMessageDate) => {
-    const firstMessageTimestamp = firstMessageDate * 1000; // Convert to milliseconds
+    const firstMessageTimestamp = firstMessageDate * 1000;
     const accountCreationDate = new Date(firstMessageTimestamp);
     const currentDate = new Date();
     const ageInMilliseconds = currentDate - accountCreationDate;
@@ -137,7 +137,7 @@ const calculateLeaderboard = (updates) => {
             if (!userScores[userId]) {
                 userScores[userId] = { username: username, score: 0 };
             }
-            userScores[userId].score += 1; // Increment score for each message
+            userScores[userId].score += 1;
         }
     });
 
