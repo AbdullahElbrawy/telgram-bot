@@ -5,17 +5,21 @@ const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 app.use(cors());
-
+        
 const TELEGRAM_API_URL = 'https://api.telegram.org';
 const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-const webAppUrl = 'https://telegram-h1hrf5b5u-sargaharreys-projects.vercel.app/'; // Replace with the actual URL of your React app
+const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
 
 
 
 // Telegram bot setup
+// Setup SQLite database
+const db = new sqlite3.Database(':memory:'); // Use an in-memory database for this example
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+// Create users table
+db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER)");
 
+// Handle /start command
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     const username = msg.from.username;
@@ -39,8 +43,10 @@ bot.onText(/\/start/, (msg) => {
     });
 });
 
+// Get user data endpoint
 app.get('/data/:username', (req, res) => {
     const username = req.params.username;
+
     db.get("SELECT chat_id FROM users WHERE username = ?", [username], (err, row) => {
         if (err) {
             return res.status(500).json({ error: 'Failed to retrieve user data' });
@@ -135,5 +141,5 @@ const getMedal = (rank) => {
     return '';
 };
 
-const PORT = 5000;
+const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
