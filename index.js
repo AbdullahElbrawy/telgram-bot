@@ -1,3 +1,5 @@
+// 6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -86,6 +88,12 @@ bot.onText(/\/start (.+)/, (msg, match) => {
             ]
         }
     });
+});
+
+// Handle /restart command
+bot.onText(/\/restart/, (msg) => {
+    detectUsername();
+    bot.sendMessage(msg.chat.id, 'Restarting the detection process...');
 });
 
 // Endpoint to receive chat ID
