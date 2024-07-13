@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = 'your_telegram_bot_token'; // Replace with your Telegram bot token
+const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
 const webAppUrl = 'https://telegram-ten-beta.vercel.app/'; // Replace with the actual URL of your React app
 
 // Initialize Telegram bot
