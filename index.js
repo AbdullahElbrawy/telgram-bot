@@ -1,48 +1,34 @@
-// const express = require('express');
-// const bodyParser = require('body-parser');
-// const db = require('./database');
-// const app = express();
-// const port = 3001;
-
-// app.use(bodyParser.json());
-
-// // عرض النقاط للمستخدم
-// app.get('/points/:username', (req, res) => {
-//     const username = req.params.username;
-//     db.get("SELECT points FROM users WHERE username = ?", [username], (err, row) => {
-//         if (err) {
-//             res.status(500).send(err.message);
-//         } else {
-//             res.json({ username: username, points: row ? row.points : 0 });
-//         }
-//     });
-// });
-
-// // عرض لوحة المتصدرين
-// app.get('/leaderboard', (req, res) => {
-//     db.all("SELECT username, points FROM users ORDER BY points DESC", [], (err, rows) => {
-//         if (err) {
-//             res.status(500).send(err.message);
-//         } else {
-//             res.json(rows);
-//         }
-//     });
-// });
-
-// app.listen(port, () => {
-//     console.log(`Server is running at http://localhost:${port}`);
-// });
-
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
 app.use(cors());
 
 const TELEGRAM_API_URL = 'https://api.telegram.org';
-const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw';
+const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+const webAppUrl = 'https://telegram-h1hrf5b5u-sargaharreys-projects.vercel.app/'; // Replace with the actual URL of your React app
 
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+// Telegram bot setup
+bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    const username = msg.from.username;
+
+    const message = `Hello ${username}, click the button below to open the web app.`;
+
+    bot.sendMessage(chatId, message, {
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?chat_id=${chatId}` } }]
+            ]
+        }
+    });
+});
+
+// Express API to get user data
 app.get('/data/:chat_id', async (req, res) => {
     const chatId = req.params.chat_id;
     try {
