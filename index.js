@@ -54,19 +54,19 @@ bot.on('message', async (msg) => {
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
         console.warn(message, creationDate, currentDate, accountAge);
 
-        // Store or update user data in the in-memory storage
+        // // Store or update user data in the in-memory storage
         users[chatId] = {
             username: username,
             chatId: chatId,
             points: users[chatId] ? users[chatId].points : 0
         };
 
-        // Save user data to MongoDB
-        await usersCollection.updateOne(
-            { chatId: chatId },
-            { $set: { username: username, chatId: chatId, points: users[chatId].points } },
-            { upsert: true }
-        );
+        // // Save user data to MongoDB
+        // await usersCollection.updateOne(
+        //     { chatId: chatId },
+        //     { $set: { username: username, chatId: chatId, points: users[chatId].points } },
+        //     { upsert: true }
+        // );
 
         bot.sendMessage(chatId, message, {
             reply_markup: {
