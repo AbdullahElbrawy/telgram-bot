@@ -32,7 +32,7 @@ const insertOrUpdateUser = (username, chatId, callback) => {
     });
 };
 
-bot.onMessage( (msg, match) => {
+bot.on('message',(msg, match) => {
     const chatId = msg.chat.id;
     const usernameFromCommand = match[1];
     console.log(usernameFromCommand)
