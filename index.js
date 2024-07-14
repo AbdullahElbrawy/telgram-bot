@@ -20,6 +20,7 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 const db = new sqlite3.Database(':memory:');
 
 
+
 db.run("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
 
 // Function to handle user data insertion or update
@@ -34,22 +35,43 @@ const insertOrUpdateUser = (username, chatId, callback) => {
     });
 };
 
-bot.onText(/\/start (.+)/, (msg, match) => {
+bot.onText(/\/start(?: (.+))?/, (msg, match) => {
     const chatId = msg.chat.id;
-    const username = match[1]; 
+    const usernameFromCommand = match[1];
 
-    const message = `Hello ${username}, click the button below to open the web app.`;
+    const getUsername = () => {
+        return new Promise((resolve, reject) => {
+            if (usernameFromCommand) {
+                resolve(usernameFromCommand);
+            } else {
+                bot.getChat(chatId).then(chat => {
+                    if (chat.username) {
+                        resolve(chat.username);
+                    } else {
+                        reject(new Error('No username found in Telegram profile'));
+                    }
+                }).catch(err => reject(err));
+            }
+        });
+    };
 
-    insertOrUpdateUser(username, chatId, (err) => {
-        if (!err) {
-            bot.sendMessage(chatId, message, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
-                    ]
-                }
-            });
-        }
+    getUsername().then(username => {
+        const message = `Hello ${username}, click the button below to open the web app.`;
+
+        insertOrUpdateUser(username, chatId, (err) => {
+            if (!err) {
+                bot.sendMessage(chatId, message, {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
+                        ]
+                    }
+                });
+            }
+        });
+    }).catch(err => {
+        bot.sendMessage(chatId, 'Failed to retrieve username. Please ensure your Telegram profile has a username set.');
+        console.error('Failed to retrieve username:', err);
     });
 });
 
