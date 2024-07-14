@@ -19,7 +19,20 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const db = new sqlite3.Database(':memory:');
 
-db.run("CREATE TABLE users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
+
+db.run("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
+
+// Function to handle user data insertion or update
+const insertOrUpdateUser = (username, chatId, callback) => {
+    db.run("INSERT OR REPLACE INTO users (username, chat_id, points) VALUES (?, ?, COALESCE((SELECT points FROM users WHERE username = ?), 0))", [username, chatId, username], (err) => {
+        if (err) {
+            console.error('Failed to store user data:', err);
+        } else {
+            console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
+        }
+        callback(err);
+    });
+};
 
 bot.onText(/\/start (.+)/, (msg, match) => {
     const chatId = msg.chat.id;
@@ -27,18 +40,15 @@ bot.onText(/\/start (.+)/, (msg, match) => {
 
     const message = `Hello ${username}, click the button below to open the web app.`;
 
-    db.run("INSERT OR REPLACE INTO users (username, chat_id, points) VALUES (?, ?, COALESCE((SELECT points FROM users WHERE username = ?), 0))", [username, chatId, username], (err) => {
-        if (err) {
-            return console.error('Failed to store user data:', err);
-        }
-        console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
-    });
-
-    bot.sendMessage(chatId, message, {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
-            ]
+    insertOrUpdateUser(username, chatId, (err) => {
+        if (!err) {
+            bot.sendMessage(chatId, message, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
+                    ]
+                }
+            });
         }
     });
 });
