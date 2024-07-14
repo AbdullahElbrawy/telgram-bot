@@ -1,9 +1,6 @@
-// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-//  const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 
-// // Use your MongoDB connection string
-// const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
-// const dbName = 'points';
+// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -22,7 +19,7 @@ const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with th
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
- const dbName = 'points';
+const dbName = 'points';
 let db, usersCollection;
 
 // Initialize MongoDB connection
@@ -153,7 +150,7 @@ app.get('/leaderboard', async (req, res) => {
         res.json(leaderboard);
     } catch (error) {
         console.error('Failed to retrieve leaderboard data:', error);
-        res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
+        
     }
 });
 
