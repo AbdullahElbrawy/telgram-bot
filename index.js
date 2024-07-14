@@ -31,30 +31,19 @@ const insertOrUpdateUser = (username, chatId, callback) => {
         callback(err);
     });
 };
-
-bot.on('message',(msg, match) => {
+bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    const usernameFromCommand = match[1];
-    console.log(usernameFromCommand)
-    const getUsername = () => {
-        return new Promise((resolve, reject) => {
-            if (usernameFromCommand) {
-                resolve(usernameFromCommand);
-            } else {
-                bot.getChat(chatId).then(chat => {
-                    if (chat.username) {
-                        resolve(chat.username);
-                    } else {
-                        reject(new Error('No username found in Telegram profile'));
-                    }
-                }).catch(err => reject(err));
-            }
-        });
-    };
 
-    getUsername().then(username => {
-        const message = `Hello ${username}, click the button below to open the web app.`;
+    try {
+        const chat = await bot.getChat(chatId);
+        const creationDate = new Date(chat.date * 1000); // Convert Unix timestamp to JavaScript Date object
+        const currentDate = new Date();
+        const accountAge = Math.floor((currentDate - creationDate) / (1000 * 60 * 60 * 24)); // Account age in days
 
+        const username = chat.username || 'unknown user';
+
+        const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
+         console.warn(message,chat,creationDate,currentDate,accountAge)
         insertOrUpdateUser(username, chatId, (err) => {
             if (!err) {
                 bot.sendMessage(chatId, message, {
@@ -66,10 +55,10 @@ bot.on('message',(msg, match) => {
                 });
             }
         });
-    }).catch(err => {
-        bot.sendMessage(chatId, 'Failed to retrieve username. Please ensure your Telegram profile has a username set.');
-        console.error('Failed to retrieve username:', err);
-    });
+    } catch (err) {
+        bot.sendMessage(chatId, 'Failed to retrieve chat information. Please try again later.');
+        console.error('Failed to retrieve chat information:', err);
+    }
 });
 
 app.post('/api/sendChatId', (req, res) => {
