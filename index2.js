@@ -1,3 +1,4 @@
+// 6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -17,6 +18,8 @@ const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with th
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const db = new sqlite3.Database(':memory:');
+
+
 
 db.run("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
 
