@@ -45,11 +45,11 @@ bot.on('message', async (msg) => {
         console.warn(message, creationDate, currentDate, accountAge);
 
         // Save user data to MongoDB
-        await usersCollection.updateOne(
-            { chatId: chatId },
-            { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
-            { upsert: true }
-        );
+        // await usersCollection.updateOne(
+        //     { chatId: chatId },
+        //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+        //     { upsert: true }
+        // );
 
         bot.sendMessage(chatId, message, {
             reply_markup: {
