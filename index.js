@@ -53,7 +53,7 @@ bot.on('message', async (msg) => {
         };
 
         // Save user data to MongoDB
-        usersCollection.updateOne(
+        await usersCollection.updateOne(
             { chatId: chatId },
             { $set: { username: username, chatId: chatId, points: users[chatId].points } },
             { upsert: true }
