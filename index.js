@@ -23,14 +23,21 @@ const dbName = 'points';
 let db, usersCollection;
 
 // Initialize MongoDB connection
-MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
+// Initialize MongoDB connection
+MongoClient.connect(mongoUrl, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 60000 // Increase timeout to 60 seconds
+})
     .then(client => {
         db = client.db(dbName);
         usersCollection = db.collection('users');
         console.log('Connected to MongoDB');
     })
-    .catch(error => console.error('Failed to connect to MongoDB:', error));
-
+    .catch(error => {
+        console.error('Failed to connect to MongoDB:', error);
+        // Handle the error accordingly
+    });
 const users = {}; // In-memory storage for user data
 
 bot.on('message', async (msg) => {
