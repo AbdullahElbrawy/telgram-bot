@@ -19,7 +19,7 @@ const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with th
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const mongoUrl = 'mongodb+srv://sarga:sarga@cluster0.fjdnf.mongodb.net/'; // Replace with your MongoDB URL
-const dbName = 'points';
+const dbName = 'sarga';
 let db, usersCollection;
 
 // Initialize MongoDB connection
