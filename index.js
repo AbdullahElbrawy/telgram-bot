@@ -153,7 +153,7 @@ app.get('/leaderboard', async (req, res) => {
         res.json(leaderboard);
     } catch (error) {
         console.error('Failed to retrieve leaderboard data:', error);
-        res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
+       res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
     }
 });
 
