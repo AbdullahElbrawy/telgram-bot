@@ -33,7 +33,7 @@ const users = {}; // In-memory storage for user data
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-
+    console.warn(msg)
     try {
         const chat = await bot.getChat(chatId);
         const creationDate = new Date(chat.date * 1000); // Convert Unix timestamp to JavaScript Date object
