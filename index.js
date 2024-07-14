@@ -1,4 +1,6 @@
 
+// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -33,17 +35,17 @@ const users = {}; // In-memory storage for user data
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    console.warn(msg)
+    console.warn(msg);
     try {
-        const chat = await bot.getChat(chatId);
-        const creationDate = new Date(chat.date * 1000); // Convert Unix timestamp to JavaScript Date object
+        // Get chat information directly from the message
+        const creationDate = new Date(msg.date * 1000); // Convert Unix timestamp to JavaScript Date object
         const currentDate = new Date();
         const accountAge = Math.floor((currentDate - creationDate) / (1000 * 60 * 60 * 24)); // Account age in days
 
-        const username = chat.username || 'unknown user';
+        const username = msg.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
-        console.warn(message, chat, creationDate, currentDate, accountAge);
+        console.warn(message, creationDate, currentDate, accountAge);
 
         // Store or update user data in the in-memory storage
         users[chatId] = {
