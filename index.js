@@ -103,11 +103,13 @@ app.get('/data/:username', (req, res) => {
         axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
             .then(userInfoResponse => {
                 const userInfo = userInfoResponse.data.result;
-
+               console.warn(userInfoResponse)
                 lock.acquire('getUpdates', done => {
                     axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
                         .then(updatesResponse => {
+
                             const updates = updatesResponse.data.result;
+                            console.warn(userInfoResponse)
                             const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
                             const accountAge = userMessages.length > 0 ? calculateAccountAge(userMessages[0].message.date) : 'Unknown';
 
