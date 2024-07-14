@@ -1,9 +1,9 @@
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const TelegramBot = require('node-telegram-bot-api');
-const sqlite3 = require('sqlite3').verbose();
-const request = require('request');
+const { MongoClient } = require('mongodb');
 const AsyncLock = require('async-lock');
 
 const lock = new AsyncLock();
@@ -16,21 +16,21 @@ const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with th
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-const db = new sqlite3.Database(':memory:');
+const mongoUrl = 'mongodb://localhost:27017'; // Replace with your MongoDB URL
+const dbName = 'leaderboardDB';
+let db, usersCollection;
 
-db.run("CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, chat_id INTEGER, points INTEGER)");
+// Initialize MongoDB connection
+MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(client => {
+        db = client.db(dbName);
+        usersCollection = db.collection('users');
+        console.log('Connected to MongoDB');
+    })
+    .catch(error => console.error('Failed to connect to MongoDB:', error));
 
-// Function to handle user data insertion or update
-const insertOrUpdateUser = (username, chatId, callback) => {
-    db.run("INSERT OR REPLACE INTO users (username, chat_id, points) VALUES (?, ?, COALESCE((SELECT points FROM users WHERE username = ?), 0))", [username, chatId, username], (err) => {
-        if (err) {
-            console.error('Failed to store user data:', err);
-        } else {
-            console.log(`Stored/Updated user: ${username}, chatId: ${chatId}`);
-        }
-        callback(err);
-    });
-};
+const users = {}; // In-memory storage for user data
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
 
@@ -43,16 +43,27 @@ bot.on('message', async (msg) => {
         const username = chat.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
-         console.warn(message,chat,creationDate,currentDate,accountAge)
-        insertOrUpdateUser(username, chatId, (err) => {
-            if (!err) {
-                bot.sendMessage(chatId, message, {
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
-                        ]
-                    }
-                });
+        console.warn(message, chat, creationDate, currentDate, accountAge);
+
+        // Store or update user data in the in-memory storage
+        users[chatId] = {
+            username: username,
+            chatId: chatId,
+            points: users[chatId] ? users[chatId].points : 0
+        };
+
+        // Save user data to MongoDB
+        usersCollection.updateOne(
+            { chatId: chatId },
+            { $set: { username: username, chatId: chatId, points: users[chatId].points } },
+            { upsert: true }
+        );
+
+        bot.sendMessage(chatId, message, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
+                ]
             }
         });
     } catch (err) {
@@ -64,78 +75,82 @@ bot.on('message', async (msg) => {
 app.post('/api/sendChatId', (req, res) => {
     const { username } = req.body;
 
-    db.get("SELECT chat_id FROM users WHERE username = ?", [username], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to retrieve user data' });
+    for (const chatId in users) {
+        if (users[chatId].username === username) {
+            return res.json({ chatId: chatId });
         }
-        if (!row) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+    }
 
-        const chatId = row.chat_id;
-        res.json({ chatId: chatId });
-    });
+    res.status(404).json({ error: 'User not found' });
 });
 
 app.get('/data/:username', (req, res) => {
     const username = req.params.username;
 
-    db.get("SELECT chat_id, points FROM users WHERE username = ?", [username], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: 'Failed to retrieve user data' });
+    let user = null;
+    for (const chatId in users) {
+        if (users[chatId].username === username) {
+            user = users[chatId];
+            break;
         }
-        if (!row) {
-            return res.status(404).json({ error: 'User not found' });
-        }
+    }
 
-        const chatId = row.chat_id;
-        axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
-            .then(userInfoResponse => {
-                const userInfo = userInfoResponse.data.result;
-               console.warn(userInfoResponse)
-                lock.acquire('getUpdates', done => {
-                    axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
-                        .then(updatesResponse => {
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
 
-                            const updates = updatesResponse.data.result;
-                            console.warn(userInfoResponse)
-                            const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
-                            const accountAge = userMessages.length > 0 ? calculateAccountAge(userMessages[0].message.date) : 'Unknown';
+    axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${user.chatId}`)
+        .then(userInfoResponse => {
+            const userInfo = userInfoResponse.data.result;
+            console.warn(userInfoResponse);
+            lock.acquire('getUpdates', done => {
+                axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
+                    .then(updatesResponse => {
+                        const updates = updatesResponse.data.result;
+                        const userMessages = updates.filter(update => update.message && update.message.chat.id == user.chatId);
+                        const accountAge = userMessages.length > 0 ? calculateAccountAge(userMessages[0].message.date) : 'Unknown';
 
-                            const leaderboard = calculateLeaderboard(updates);
+                        const leaderboard = calculateLeaderboard(updates);
 
-                            const data = {
-                                username: userInfo.username,
-                                accountAge: accountAge,
-                                points: row.points,
-                                catsCount: 707,
-                                community: { name: 'CATS COMMUNITY', bonus: 100 },
-                                leaderboard: leaderboard,
-                            };
+                        const data = {
+                            username: userInfo.username,
+                            accountAge: accountAge,
+                            points: user.points,
+                            catsCount: 707,
+                            community: { name: 'CATS COMMUNITY', bonus: 100 },
+                            leaderboard: leaderboard,
+                        };
 
-                            res.json(data);
-                            done();
-                        })
-                        .catch(error => {
-                            console.error('Error fetching updates from Telegram:', error);
-                            res.status(500).json({ error: 'Failed to fetch updates' });
-                            done();
-                        });
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching user data from Telegram:', error);
-                res.status(500).json({ error: 'Failed to fetch user data' });
+                        res.json(data);
+                        done();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching updates from Telegram:', error);
+                        res.status(500).json({ error: 'Failed to fetch updates' });
+                        done();
+                    });
             });
-    });
+        })
+        .catch(error => {
+            console.error('Error fetching user data from Telegram:', error);
+            res.status(500).json({ error: 'Failed to fetch user data' });
+        });
 });
 
 app.get('/leaderboard', (req, res) => {
-    db.all("SELECT username, points FROM users ORDER BY points DESC", [], (err, rows) => {
+    usersCollection.find().sort({ points: -1 }).toArray((err, users) => {
         if (err) {
             return res.status(500).json({ error: 'Failed to retrieve leaderboard data' });
         }
-        res.json(rows);
+
+        const leaderboard = users.map((user, index) => ({
+            rank: index + 1,
+            name: user.username,
+            score: user.points,
+            medal: getMedal(index + 1),
+        }));
+
+        res.json(leaderboard);
     });
 });
 
