@@ -43,9 +43,9 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    console.warn(msg);
+
     try {
-        const accountAge = calculateTelegramAccountAge(msg.from.date);
+        const accountAge = calculateTelegramAccountAge(msg.date);
         const username = msg.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
