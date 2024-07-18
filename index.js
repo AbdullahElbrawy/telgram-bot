@@ -19,23 +19,28 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 // const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
 
+const mongoUrl =
+  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
 const dbName = "points";
 let db, usersCollection;
 
-// Initialize MongoDB connection
-const mongoUrl =
-  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
-
-MongoClient.connect(mongoUrl, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then((client) => {
+const initializeMongoDB = async () => {
+  try {
+    const client = await MongoClient.connect(mongoUrl, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     db = client.db(dbName);
     usersCollection = db.collection("users");
     console.log("Connected to MongoDB");
-  })
-  .catch((error) => console.error("Failed to connect to MongoDB:", error));
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    process.exit(1); // Exit the process with failure
+  }
+};
+
+// Initialize MongoDB connection
+initializeMongoDB();
 
 const calculateTelegramAccountAge = (accountCreationDate) => {
   const currentDate = new Date();
