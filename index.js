@@ -4,7 +4,7 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { MongoClient } = require('mongodb');
 const AsyncLock = require('async-lock');
-const Coinbase = require('coinbase').Client;
+// const Coinbase = require('coinbase').Client;
 
 const lock = new AsyncLock();
 const app = express();
