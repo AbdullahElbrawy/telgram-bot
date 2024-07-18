@@ -128,10 +128,10 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
         points: 0,
         accountAge: accountAge,
       };
-      const insertResult = await usersCollection.insertOne(newUser);
-      console.log("insertResult", insertResult);
-      user = insertResult.ops[0]; // MongoDB returns the inserted document in the 'ops' array
-      console.log(`Created new user: ${username}`);
+     const insertResult = await usersCollection.insertOne(newUser);
+     console.log("insertResult", insertResult);
+     user = await usersCollection.findOne({ _id: insertResult.insertedId });
+     console.log(`Created new user: ${username}`);
     }
 
     const chatId = user.chatId;
