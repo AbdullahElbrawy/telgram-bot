@@ -20,7 +20,7 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
 const dbName = 'points';
-let db, usersCollection;
+var db, usersCollection;
 
 // Initialize MongoDB connection
 MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -81,7 +81,7 @@ app.post('/api/sendChatId', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch user data' });
     }
 });
-
+ 
 // Endpoint to retrieve user data
 app.get('/data/:username', async (req, res) => {
     const username = req.params.username;
