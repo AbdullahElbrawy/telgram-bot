@@ -11,13 +11,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
-const BOT_TOKEN = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
-const webAppUrl = "https://telegram-front-three.vercel.app/";
+const BOT_TOKEN = process.env.Bot; // Replace with your Telegram bot token
+const webAppUrl = process.env.Front; // Replace with the actual URL of your React app
 
 const bot = new Telegraf(BOT_TOKEN);
 
-const mongoUrl = "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
+const mongoUrl = process.env.Mongo;
 const dbName = 'points';
 let db, usersCollection;
 

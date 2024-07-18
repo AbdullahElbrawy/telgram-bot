@@ -10,12 +10,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
+const BOT_TOKEN = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
 const webAppUrl = "https://telegram-front-three.vercel.app/";
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-
-const mongoUrl = "YOUR_MONGO_URL_HERE";
+const mongoUrl =
+  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
 const dbName = "points";
 let db, usersCollection;
 
