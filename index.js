@@ -53,20 +53,20 @@ const updateUserPoints = async (chatId, points) => {
     );
 };
 
-const client = new Coinbase({
-    apiKey: 'YOUR_API_KEY',
-    apiSecret: 'YOUR_API_SECRET'
-});
+// const client = new Coinbase({
+//     apiKey: 'YOUR_API_KEY',
+//     apiSecret: 'YOUR_API_SECRET'
+// });
 
-const createWallet = async (userId) => {
-    const account = await client.createAccount({ name: `wallet-${userId}` });
-    return account.id;
-};
+// const createWallet = async (userId) => {
+//     const account = await client.createAccount({ name: `wallet-${userId}` });
+//     return account.id;
+// };
 
-const getWalletBalance = async (accountId) => {
-    const account = await client.getAccount(accountId);
-    return account.balance;
-};
+// const getWalletBalance = async (accountId) => {
+//     const account = await client.getAccount(accountId);
+//     return account.balance;
+// };
 
 bot.on('message', async (ctx) => {
     const chatId = ctx.message.chat.id;
@@ -121,23 +121,23 @@ bot.command('spin', async (ctx) => {
     ctx.reply(`You spun the wheel and won ${points} points!`);
 });
 
-bot.command('wallet', async (ctx) => {
-    const chatId = ctx.message.chat.id;
+// bot.command('wallet', async (ctx) => {
+//     const chatId = ctx.message.chat.id;
 
-    let user = await usersCollection.findOne({ chatId: chatId });
-    if (!user || !user.walletId) {
-        const walletId = await createWallet(chatId);
-        await usersCollection.updateOne(
-            { chatId: chatId },
-            { $set: { walletId: walletId } },
-            { upsert: true }
-        );
-        user = { ...user, walletId };
-    }
+//     let user = await usersCollection.findOne({ chatId: chatId });
+//     if (!user || !user.walletId) {
+//         const walletId = await createWallet(chatId);
+//         await usersCollection.updateOne(
+//             { chatId: chatId },
+//             { $set: { walletId: walletId } },
+//             { upsert: true }
+//         );
+//         user = { ...user, walletId };
+//     }
 
-    const balance = await getWalletBalance(user.walletId);
-    ctx.reply(`Your wallet balance is ${balance.amount} ${balance.currency}`);
-});
+//     const balance = await getWalletBalance(user.walletId);
+//     ctx.reply(`Your wallet balance is ${balance.amount} ${balance.currency}`);
+// });
 
 // Remaining code for endpoints and server initialization
 app.post('/api/sendChatId', async (req, res) => {
