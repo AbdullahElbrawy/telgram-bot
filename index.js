@@ -130,9 +130,7 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
         accountAge: accountAge,
       };
       const insertResult = await usersCollection.insertOne(newUser);
-      console.log("insertResult", insertResult);
       user = await usersCollection.findOne({ _id: insertResult.insertedId });
-      console.log(`Created new user: ${username}`);
     }
 
     const chatId = user.chatId;
