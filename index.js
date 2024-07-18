@@ -68,7 +68,7 @@ const updateUserPoints = async (chatId, points) => {
 //     return account.balance;
 // };
 
-bot.on('message', async (ctx) => {
+bot.start(async (ctx) => {
     const chatId = ctx.message.chat.id;
 
     try {
@@ -76,7 +76,6 @@ bot.on('message', async (ctx) => {
         const username = ctx.message.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
-        console.warn(message, accountAge);
 
         // Save user data to MongoDB
         await usersCollection.updateOne(
