@@ -115,10 +115,9 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
   const username = req.params.username;
   const accountAge = parseInt(req.params.accountAge) || 0; // Default to 0 if not provided
   try {
-
-        if (!usersCollection) {
-          throw new Error("usersCollection is not initialized");
-        }
+    if (!usersCollection) {
+      throw new Error("usersCollection is not initialized");
+    }
 
     let user = await usersCollection.findOne({ username });
     if (!user) {
@@ -130,10 +129,10 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
         accountAge: accountAge,
       };
       const insertResult = await usersCollection.insertOne(newUser);
+      console.log("insertResult", insertResult);
       user = insertResult.ops[0]; // MongoDB returns the inserted document in the 'ops' array
       console.log(`Created new user: ${username}`);
     }
-
 
     const chatId = user.chatId;
 
