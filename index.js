@@ -1,10 +1,7 @@
-
-// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 const { MongoClient } = require('mongodb');
 const AsyncLock = require('async-lock');
 
@@ -16,7 +13,7 @@ app.use(express.json());
 const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
 const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new Telegraf(BOT_TOKEN);
 
 const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
 const dbName = 'points';
@@ -41,24 +38,24 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
     return ageInDays;
 };
 
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
+bot.on('message', async (ctx) => {
+    const chatId = ctx.message.chat.id;
 
     try {
-        const accountAge = calculateTelegramAccountAge(msg.date);
-        const username = msg.from.username || 'unknown user';
+        const accountAge = calculateTelegramAccountAge(ctx.message.date);
+        const username = ctx.message.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
         console.warn(message, accountAge);
 
         // Save user data to MongoDB
-        // await usersCollection.updateOne(
-        //     { chatId: chatId },
-        //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
-        //     { upsert: true }
-        // );
+        await usersCollection.updateOne(
+            { chatId: chatId },
+            { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+            { upsert: true }
+        );
 
-        bot.sendMessage(chatId, message, {
+        ctx.reply(message, {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}&age=${accountAge}` } }]
@@ -66,7 +63,7 @@ bot.on('message', async (msg) => {
             }
         });
     } catch (err) {
-        bot.sendMessage(chatId, 'Failed to retrieve chat information. Please try again later.');
+        ctx.reply('Failed to retrieve chat information. Please try again later.');
         console.error('Failed to retrieve chat information:', err);
     }
 });
@@ -92,7 +89,8 @@ app.post('/api/sendChatId', async (req, res) => {
 // Endpoint to retrieve user data
 app.get('/data/:username/:accountAge?', async (req, res) => {
     const username = req.params.username;
-    const accountAge = parseInt(req.params.accountAge);
+    const accountAge = req.params.accountAge ? parseInt(req.params.accountAge) : null;
+
     try {
         const user = await usersCollection.findOne({ username });
         if (!user) {
@@ -115,7 +113,7 @@ app.get('/data/:username/:accountAge?', async (req, res) => {
 
                             const data = {
                                 username: userInfo.username,
-                                accountAge: accountAge,
+                                accountAge: accountAge !== null ? accountAge : user.accountAge,
                                 points: user.points,
                                 catsCount: 707,
                                 community: { name: 'CATS COMMUNITY', bonus: 100 },
@@ -197,3 +195,5 @@ const getMedal = (rank) => {
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+bot.launch();
