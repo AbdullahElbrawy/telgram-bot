@@ -113,12 +113,27 @@ app.post("/api/sendChatId", async (req, res) => {
 // Endpoint to retrieve user data
 app.get("/data/:username/:accountAge?", async (req, res) => {
   const username = req.params.username;
-  const accountAge = parseInt(req.params.accountAge);
+  const accountAge = parseInt(req.params.accountAge) || 0; // Default to 0 if not provided
   try {
-    const user = await usersCollection.findOne({ username });
+
+        if (!usersCollection) {
+          throw new Error("usersCollection is not initialized");
+        }
+
+    let user = await usersCollection.findOne({ username });
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      // Create a new user if not found
+      const newUser = {
+        username: username,
+        chatId: null, // Since chatId is not available here, set it to null or some default value
+        points: 0,
+        accountAge: accountAge,
+      };
+      const insertResult = await usersCollection.insertOne(newUser);
+      user = insertResult.ops[0]; // MongoDB returns the inserted document in the 'ops' array
+      console.log(`Created new user: ${username}`);
     }
+
 
     const chatId = user.chatId;
 
