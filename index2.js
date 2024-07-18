@@ -1,47 +1,199 @@
-const { Telegraf } = require('telegraf');
+
+// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+const TelegramBot = require('node-telegram-bot-api');
 const { MongoClient } = require('mongodb');
-const moment = require('moment');
+const AsyncLock = require('async-lock');
 
-// MongoDB connection details
-const uri = "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/";
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const lock = new AsyncLock();
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// Telegram bot token
-const bot = new Telegraf('6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw');
+const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
+const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 
-async function getAccountAge(userId) {
-  try {
-    await client.connect();
-    const database = client.db('BOT');
-    const usersCollection = database.collection('BOT');
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-    // Find the user in the database
-    const user = await usersCollection.findOne({ user_id: userId });
+const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
+const dbName = 'points';
+let db, usersCollection;
 
-    if (!user) {
-      return 'User not found';
+// Initialize MongoDB connection
+MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(client => {
+        db = client.db(dbName);
+        usersCollection = db.collection('users');
+        console.log('Connected to MongoDB');
+    })
+    .catch(error => console.error('Failed to connect to MongoDB:', error));
+
+const calculateTelegramAccountAge = (accountCreationDate) => {
+    const currentDate = new Date();
+    const creationDate = new Date(accountCreationDate * 1000); // Convert seconds to milliseconds
+
+    const ageInMilliseconds = currentDate - creationDate;
+    const ageInDays = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24));
+
+    return ageInDays;
+};
+
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+
+    try {
+        const accountAge = calculateTelegramAccountAge(msg.date);
+        const username = msg.from.username || 'unknown user';
+
+        const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
+        console.warn(message, accountAge);
+
+        // Save user data to MongoDB
+        // await usersCollection.updateOne(
+        //     { chatId: chatId },
+        //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+        //     { upsert: true }
+        // );
+
+        bot.sendMessage(chatId, message, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}&age=${accountAge}` } }]
+                ]
+            }
+        });
+    } catch (err) {
+        bot.sendMessage(chatId, 'Failed to retrieve chat information. Please try again later.');
+        console.error('Failed to retrieve chat information:', err);
     }
-
-    const joinDate = user.join_date;
-    const accountAge = moment().diff(moment(joinDate), 'days');
-    
-    return `Account Age: ${accountAge} days`;
-  } catch (error) {
-    console.error(error);
-    return 'Error occurred while fetching account age';
-  } finally {
-    await client.close();
-  }
-}
-
-
-bot.start(async (ctx) => {
-  const userId = ctx.message.from.id;
-  const accountAgeMessage = await getAccountAge(userId);
-  ctx.reply(accountAgeMessage);
 });
 
+// Endpoint to retrieve chat ID by username
+app.post('/api/sendChatId', async (req, res) => {
+    const { username } = req.body;
 
-bot.launch();
+    try {
+        const user = await usersCollection.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
 
-console.log('Bot is running...');
+        const chatId = user.chatId;
+        res.json({ chatId: chatId });
+    } catch (error) {
+        console.error('Error fetching user from MongoDB:', error);
+        res.status(500).json({ error: 'Failed to fetch user data' });
+    }
+});
+
+// Endpoint to retrieve user data
+app.get('/data/:username/:accountAge', async (req, res) => {
+    const username = req.params.username;
+    const accountAge = parseInt(req.params.accountAge);
+    try {
+        const user = await usersCollection.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const chatId = user.chatId;
+
+        axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
+            .then(userInfoResponse => {
+                const userInfo = userInfoResponse.data.result;
+
+                lock.acquire('getUpdates', done => {
+                    axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates`)
+                        .then(updatesResponse => {
+                            const updates = updatesResponse.data.result;
+                            const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
+
+                            const leaderboard = calculateLeaderboard(updates);
+
+                            const data = {
+                                username: userInfo.username,
+                                accountAge: accountAge,
+                                points: user.points,
+                                catsCount: 707,
+                                community: { name: 'CATS COMMUNITY', bonus: 100 },
+                                leaderboard: leaderboard,
+                            };
+
+                            res.json(data);
+                            done();
+                        })
+                        .catch(error => {
+                            console.error('Error fetching updates from Telegram:', error);
+                            res.status(500).json({ error: 'Failed to fetch updates' });
+                            done();
+                        });
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching user data from Telegram:', error);
+                res.status(500).json({ error: 'Failed to fetch user data' });
+            });
+    } catch (error) {
+        console.error('Error fetching user from MongoDB:', error);
+        res.status(500).json({ error: 'Failed to fetch user data' });
+    }
+});
+
+// Endpoint to retrieve leaderboard data
+app.get('/leaderboard', async (req, res) => {
+    try {
+        const users = await usersCollection.find().sort({ points: -1 }).toArray();
+
+        const leaderboard = users.map((user, index) => ({
+            rank: index + 1,
+            name: user.username,
+            score: user.points,
+            medal: getMedal(index + 1),
+        }));
+
+        res.json(leaderboard);
+    } catch (error) {
+        console.error('Failed to retrieve leaderboard data:', error);
+    }
+});
+
+// Function to calculate leaderboard
+const calculateLeaderboard = (updates) => {
+    const userScores = {};
+
+    updates.forEach(update => {
+        if (update.message) {
+            const userId = update.message.from.id;
+            const username = update.message.from.username || `User ${userId}`;
+            if (!userScores[userId]) {
+                userScores[userId] = { username: username, score: 0 };
+            }
+            userScores[userId].score += 1;
+        }
+    });
+
+    const leaderboard = Object.values(userScores)
+        .sort((a, b) => b.score - a.score)
+        .map((user, index) => ({
+            rank: index + 1,
+            name: user.username,
+            score: user.score,
+            medal: getMedal(index + 1),
+        }));
+
+    return leaderboard;
+};
+
+// Function to get medal emoji based on rank
+const getMedal = (rank) => {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return '';
+};
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
