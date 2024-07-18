@@ -43,7 +43,7 @@ MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true 
     
     // Example usage with Telegram message object
   
-    console.log(`Telegram user account age: ${accountAge} days`);
+
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
