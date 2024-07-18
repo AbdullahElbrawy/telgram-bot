@@ -90,7 +90,7 @@ app.post('/api/sendChatId', async (req, res) => {
 });
 
 // Endpoint to retrieve user data
-app.get('/data/:username/:accountAge?', async (req, res) => {
+app.get('/data/:username/:accountAge', async (req, res) => {
     const username = req.params.username;
     const accountAge = parseInt(req.params.accountAge);
     try {

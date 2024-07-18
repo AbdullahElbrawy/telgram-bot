@@ -1,24 +1,22 @@
-
-// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const TelegramBot = require('node-telegram-bot-api');
+const { Telegraf } = require('telegraf');
 const { MongoClient } = require('mongodb');
 const AsyncLock = require('async-lock');
+// const Coinbase = require('coinbase').Client;
 
 const lock = new AsyncLock();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
+const BOT_TOKEN = process.env.Bot; // Replace with your Telegram bot token
+const webAppUrl = process.env.Front; // Replace with the actual URL of your React app
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new Telegraf(BOT_TOKEN);
 
-const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
+const mongoUrl = process.env.Mongo;
 const dbName = 'points';
 let db, usersCollection;
 
@@ -41,24 +39,53 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
     return ageInDays;
 };
 
-bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
+const spinWheel = () => {
+    const prizes = [0, 10, 20, 50, 100]; // Define the possible prizes
+    const randomIndex = Math.floor(Math.random() * prizes.length);
+    return prizes[randomIndex];
+};
+
+const updateUserPoints = async (chatId, points) => {
+    await usersCollection.updateOne(
+        { chatId: chatId },
+        { $inc: { points: points } },
+        { upsert: true }
+    );
+};
+
+// const client = new Coinbase({
+//     apiKey: 'YOUR_API_KEY',
+//     apiSecret: 'YOUR_API_SECRET'
+// });
+
+// const createWallet = async (userId) => {
+//     const account = await client.createAccount({ name: `wallet-${userId}` });
+//     return account.id;
+// };
+
+// const getWalletBalance = async (accountId) => {
+//     const account = await client.getAccount(accountId);
+//     return account.balance;
+// };
+
+bot.on('message', async (ctx) => {
+    const chatId = ctx.message.chat.id;
 
     try {
-        const accountAge = calculateTelegramAccountAge(msg.date);
-        const username = msg.from.username || 'unknown user';
+        const accountAge = calculateTelegramAccountAge(ctx.message.date);
+        const username = ctx.message.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
         console.warn(message, accountAge);
 
         // Save user data to MongoDB
-        // await usersCollection.updateOne(
-        //     { chatId: chatId },
-        //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
-        //     { upsert: true }
-        // );
+        await usersCollection.updateOne(
+            { chatId: chatId },
+            { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+            { upsert: true }
+        );
 
-        bot.sendMessage(chatId, message, {
+        ctx.reply(message, {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}&age=${accountAge}` } }]
@@ -66,12 +93,53 @@ bot.on('message', async (msg) => {
             }
         });
     } catch (err) {
-        bot.sendMessage(chatId, 'Failed to retrieve chat information. Please try again later.');
+        ctx.reply('Failed to retrieve chat information. Please try again later.');
         console.error('Failed to retrieve chat information:', err);
     }
 });
 
-// Endpoint to retrieve chat ID by username
+bot.command('spin', async (ctx) => {
+    const chatId = ctx.message.chat.id;
+
+    const user = await usersCollection.findOne({ chatId: chatId });
+    const lastSpinDate = user ? user.lastSpinDate : null;
+    const currentDate = new Date().toDateString();
+
+    if (lastSpinDate === currentDate) {
+        return ctx.reply("You've already spun the wheel today. Come back tomorrow!");
+    }
+
+    const points = spinWheel();
+    await updateUserPoints(chatId, points);
+
+    await usersCollection.updateOne(
+        { chatId: chatId },
+        { $set: { lastSpinDate: currentDate } },
+        { upsert: true }
+    );
+
+    ctx.reply(`You spun the wheel and won ${points} points!`);
+});
+
+// bot.command('wallet', async (ctx) => {
+//     const chatId = ctx.message.chat.id;
+
+//     let user = await usersCollection.findOne({ chatId: chatId });
+//     if (!user || !user.walletId) {
+//         const walletId = await createWallet(chatId);
+//         await usersCollection.updateOne(
+//             { chatId: chatId },
+//             { $set: { walletId: walletId } },
+//             { upsert: true }
+//         );
+//         user = { ...user, walletId };
+//     }
+
+//     const balance = await getWalletBalance(user.walletId);
+//     ctx.reply(`Your wallet balance is ${balance.amount} ${balance.currency}`);
+// });
+
+// Remaining code for endpoints and server initialization
 app.post('/api/sendChatId', async (req, res) => {
     const { username } = req.body;
 
@@ -89,10 +157,10 @@ app.post('/api/sendChatId', async (req, res) => {
     }
 });
 
-// Endpoint to retrieve user data
 app.get('/data/:username/:accountAge?', async (req, res) => {
     const username = req.params.username;
-    const accountAge = parseInt(req.params.accountAge);
+    const accountAge = req.params.accountAge ? parseInt(req.params.accountAge) : null;
+
     try {
         const user = await usersCollection.findOne({ username });
         if (!user) {
@@ -115,7 +183,7 @@ app.get('/data/:username/:accountAge?', async (req, res) => {
 
                             const data = {
                                 username: userInfo.username,
-                                accountAge: accountAge,
+                                accountAge: accountAge !== null ? accountAge : user.accountAge,
                                 points: user.points,
                                 catsCount: 707,
                                 community: { name: 'CATS COMMUNITY', bonus: 100 },
@@ -142,7 +210,6 @@ app.get('/data/:username/:accountAge?', async (req, res) => {
     }
 });
 
-// Endpoint to retrieve leaderboard data
 app.get('/leaderboard', async (req, res) => {
     try {
         const users = await usersCollection.find().sort({ points: -1 }).toArray();
@@ -160,7 +227,6 @@ app.get('/leaderboard', async (req, res) => {
     }
 });
 
-// Function to calculate leaderboard
 const calculateLeaderboard = (updates) => {
     const userScores = {};
 
@@ -187,7 +253,6 @@ const calculateLeaderboard = (updates) => {
     return leaderboard;
 };
 
-// Function to get medal emoji based on rank
 const getMedal = (rank) => {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
@@ -197,3 +262,5 @@ const getMedal = (rank) => {
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+bot.launch();
