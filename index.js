@@ -31,14 +31,29 @@ MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true 
     })
     .catch(error => console.error('Failed to connect to MongoDB:', error));
 
+    const calculateTelegramAccountAge = (accountCreationDate) => {
+        const currentDate = new Date();
+        const creationDate = new Date(accountCreationDate * 1000); // Convert seconds to milliseconds
+    
+        const ageInMilliseconds = currentDate - creationDate;
+        const ageInDays = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24));
+    
+        return ageInDays;
+    };
+    
+    // Example usage with Telegram message object
+  
+    console.log(`Telegram user account age: ${accountAge} days`);
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     console.warn(msg);
     try {
         const creationDate = new Date(msg.date * 1000); // Convert Unix timestamp to JavaScript Date object
         const currentDate = new Date();
-        const accountAge = Math.floor((currentDate - creationDate) / (1000 * 60 * 60 * 24)); // Account age in days
-
+        const age =  msg.from.date; // Account age in days
+        // const accountCreationDate = msg.from.date;
+        const accountAge = calculateTelegramAccountAge(age);
         const username = msg.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
@@ -155,14 +170,14 @@ app.get('/leaderboard', async (req, res) => {
 });
 
 // Function to calculate account age in days
-const calculateAccountAge = (firstMessageDate) => {
-    const firstMessageTimestamp = firstMessageDate * 1000;
-    const accountCreationDate = new Date(firstMessageTimestamp);
-    const currentDate = new Date();
-    const ageInMilliseconds = currentDate - accountCreationDate;
-    const ageInDays = ageInMilliseconds / (1000 * 60 * 60 * 24);
-    return `${Math.floor(ageInDays)} days`;
-};
+// const calculateAccountAge = (firstMessageDate) => {
+//     const firstMessageTimestamp = firstMessageDate * 1000;
+//     const accountCreationDate = new Date(firstMessageTimestamp);
+//     const currentDate = new Date();
+//     const ageInMilliseconds = currentDate - accountCreationDate;
+//     const ageInDays = ageInMilliseconds / (1000 * 60 * 60 * 24);
+//     return `${Math.floor(ageInDays)} days`;
+// };
 
 // Function to calculate leaderboard
 const calculateLeaderboard = (updates) => {
