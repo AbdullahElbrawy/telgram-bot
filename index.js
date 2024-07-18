@@ -43,7 +43,7 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    console.warn(msg.from.date);
+    console.warn(msg);
     try {
         const accountAge = calculateTelegramAccountAge(msg.from.date);
         const username = msg.from.username || 'unknown user';
