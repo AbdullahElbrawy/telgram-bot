@@ -66,10 +66,10 @@ bot.on('message', async (msg) => {
         //     { upsert: true }
         // );
 
-        bot.sendMessage(chatId, message, {
+        bot.sendMessage(chatId, message,accountAge, {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}` } }]
+                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}?age=${accountAge}` } }]
                 ]
             }
         });
@@ -98,9 +98,9 @@ app.post('/api/sendChatId', async (req, res) => {
 });
  
 // Endpoint to retrieve user data
-app.get('/data/:username', async (req, res) => {
+app.get('/data/:username/:accountAge', async (req, res) => {
     const username = req.params.username;
-
+     const accountAge = parseInt(req.params.accountAge);
     try {
         const user = await usersCollection.findOne({ username });
         if (!user) {
@@ -108,6 +108,7 @@ app.get('/data/:username', async (req, res) => {
         }
 
         const chatId = user.chatId;
+        
         axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
             .then(userInfoResponse => {
                 const userInfo = userInfoResponse.data.result;
@@ -117,7 +118,7 @@ app.get('/data/:username', async (req, res) => {
                         .then(updatesResponse => {
                             const updates = updatesResponse.data.result;
                             const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
-                            const accountAge = userMessages.length > 0 ? calculateAccountAge(userMessages[0].message.date) : 'Unknown';
+                            
 
                             const leaderboard = calculateLeaderboard(updates);
 
