@@ -10,13 +10,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
+const BOT_TOKEN = "YOUR_BOT_TOKEN_HERE";
 const webAppUrl = "https://telegram-front-three.vercel.app/";
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-const mongoUrl =
-  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
+const mongoUrl = "YOUR_MONGO_URL_HERE";
 const dbName = "points";
 let db, usersCollection;
 
@@ -50,8 +49,9 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
 
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
+  const text = msg.text.toLowerCase();
 
-  if (msg.text.toLowerCase() === "/start") {
+  if (text === "/start") {
     try {
       const accountAge = calculateTelegramAccountAge(msg.date);
       const username = msg.from.username || "unknown user";
@@ -93,8 +93,13 @@ bot.on("message", async (msg) => {
       );
       console.error("Failed to retrieve chat information:", err);
     }
+  } else if (text === "/open") {
+    // Handle the /open command
+    bot.sendMessage(chatId, "This is the popup screen!");
+    // You can add more code here to handle opening a popup or additional actions
   } else {
-    bot.sendMessage(chatId, "Send /start to get the options.");
+    // Reply to any other text message
+    bot.sendMessage(chatId, "You sent: " + msg.text);
   }
 });
 
