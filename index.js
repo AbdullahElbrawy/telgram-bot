@@ -114,6 +114,7 @@ app.post("/api/sendChatId", async (req, res) => {
 app.get("/data/:username/:accountAge?", async (req, res) => {
   const username = req.params.username;
   const accountAge = parseInt(req.params.accountAge) || 0; // Default to 0 if not provided
+
   try {
     if (!usersCollection) {
       throw new Error("usersCollection is not initialized");
@@ -128,10 +129,10 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
         points: 0,
         accountAge: accountAge,
       };
-     const insertResult = await usersCollection.insertOne(newUser);
-     console.log("insertResult", insertResult);
-     user = await usersCollection.findOne({ _id: insertResult.insertedId });
-     console.log(`Created new user: ${username}`);
+      const insertResult = await usersCollection.insertOne(newUser);
+      console.log("insertResult", insertResult);
+      user = await usersCollection.findOne({ _id: insertResult.insertedId });
+      console.log(`Created new user: ${username}`);
     }
 
     const chatId = user.chatId;
