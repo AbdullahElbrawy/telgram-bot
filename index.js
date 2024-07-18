@@ -1,5 +1,3 @@
-// const BOT_TOKEN = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw'; // Replace with your Telegram bot token
-// const webAppUrl = 'https://telegram-front-three.vercel.app/'; // Replace with the actual URL of your React app
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
@@ -12,12 +10,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw"; // Replace with your Telegram bot token
-const webAppUrl = "https://telegram-front-three.vercel.app/"; // Replace with the actual URL of your React app
+const BOT_TOKEN = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
+const webAppUrl = "https://telegram-front-three.vercel.app/";
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-
-// const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
 
 const mongoUrl =
   "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/points?retryWrites=true&w=majority&ssl=true";
@@ -55,40 +51,50 @@ const calculateTelegramAccountAge = (accountCreationDate) => {
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
 
-  try {
-    const accountAge = calculateTelegramAccountAge(msg.date);
-    const username = msg.from.username || "unknown user";
+  if (msg.text.toLowerCase() === "/start") {
+    try {
+      const accountAge = calculateTelegramAccountAge(msg.date);
+      const username = msg.from.username || "unknown user";
 
-    const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
-    console.warn(message, accountAge);
+      const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
 
-    // Save user data to MongoDB
-    // await usersCollection.updateOne(
-    //     { chatId: chatId },
-    //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
-    //     { upsert: true }
-    // );
+      // Save user data to MongoDB
+      await usersCollection.updateOne(
+        { chatId: chatId },
+        {
+          $set: {
+            username: username,
+            chatId: chatId,
+            points: 0,
+            accountAge: accountAge,
+          },
+        },
+        { upsert: true }
+      );
 
-    bot.sendMessage(chatId, message, {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Web App",
-              web_app: {
-                url: `${webAppUrl}?username=${username}&age=${accountAge}`,
+      bot.sendMessage(chatId, message, {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "Open Web App",
+                web_app: {
+                  url: `${webAppUrl}?username=${username}&age=${accountAge}`,
+                },
               },
-            },
+            ],
           ],
-        ],
-      },
-    });
-  } catch (err) {
-    bot.sendMessage(
-      chatId,
-      "Failed to retrieve chat information. Please try again later."
-    );
-    console.error("Failed to retrieve chat information:", err);
+        },
+      });
+    } catch (err) {
+      bot.sendMessage(
+        chatId,
+        "Failed to retrieve chat information. Please try again later."
+      );
+      console.error("Failed to retrieve chat information:", err);
+    }
+  } else {
+    bot.sendMessage(chatId, "Send /start to get the options.");
   }
 });
 
