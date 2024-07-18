@@ -20,7 +20,7 @@ const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
 const mongoUrl = 'mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/';
 const dbName = 'points';
-var db, usersCollection;
+let db, usersCollection;
 
 // Initialize MongoDB connection
 MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true })
@@ -31,45 +31,37 @@ MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true 
     })
     .catch(error => console.error('Failed to connect to MongoDB:', error));
 
-    const calculateTelegramAccountAge = (accountCreationDate) => {
-        const currentDate = new Date();
-        const creationDate = new Date(accountCreationDate * 1000); // Convert seconds to milliseconds
-    
-        const ageInMilliseconds = currentDate - creationDate;
-        const ageInDays = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24));
-    
-        return ageInDays;
-    };
-    
-    // Example usage with Telegram message object
-  
+const calculateTelegramAccountAge = (accountCreationDate) => {
+    const currentDate = new Date();
+    const creationDate = new Date(accountCreationDate * 1000); // Convert seconds to milliseconds
 
+    const ageInMilliseconds = currentDate - creationDate;
+    const ageInDays = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24));
+
+    return ageInDays;
+};
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     console.warn(msg);
     try {
-        const creationDate = new Date(msg.date * 1000); // Convert Unix timestamp to JavaScript Date object
-        const currentDate = new Date();
-        const age =  msg.from.date; // Account age in days
-        // const accountCreationDate = msg.from.date;
-        const accountAge = calculateTelegramAccountAge(age);
+        const accountAge = calculateTelegramAccountAge(msg.date);
         const username = msg.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
-        console.warn(message, creationDate, currentDate, accountAge);
+        console.warn(message, accountAge);
 
         // Save user data to MongoDB
-        // await usersCollection.updateOne(
-        //     { chatId: chatId },
-        //     { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
-        //     { upsert: true }
-        // );
+        await usersCollection.updateOne(
+            { chatId: chatId },
+            { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+            { upsert: true }
+        );
 
-        bot.sendMessage(chatId, message,accountAge, {
+        bot.sendMessage(chatId, message, {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}?age=${accountAge}` } }]
+                    [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}&age=${accountAge}` } }]
                 ]
             }
         });
@@ -96,11 +88,11 @@ app.post('/api/sendChatId', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch user data' });
     }
 });
- 
+
 // Endpoint to retrieve user data
 app.get('/data/:username/:accountAge', async (req, res) => {
     const username = req.params.username;
-     const accountAge = parseInt(req.params.accountAge);
+    const accountAge = parseInt(req.params.accountAge);
     try {
         const user = await usersCollection.findOne({ username });
         if (!user) {
@@ -108,7 +100,7 @@ app.get('/data/:username/:accountAge', async (req, res) => {
         }
 
         const chatId = user.chatId;
-        
+
         axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${chatId}`)
             .then(userInfoResponse => {
                 const userInfo = userInfoResponse.data.result;
@@ -118,7 +110,6 @@ app.get('/data/:username/:accountAge', async (req, res) => {
                         .then(updatesResponse => {
                             const updates = updatesResponse.data.result;
                             const userMessages = updates.filter(update => update.message && update.message.chat.id == chatId);
-                            
 
                             const leaderboard = calculateLeaderboard(updates);
 
@@ -166,19 +157,8 @@ app.get('/leaderboard', async (req, res) => {
         res.json(leaderboard);
     } catch (error) {
         console.error('Failed to retrieve leaderboard data:', error);
-        
     }
 });
-
-// Function to calculate account age in days
-// const calculateAccountAge = (firstMessageDate) => {
-//     const firstMessageTimestamp = firstMessageDate * 1000;
-//     const accountCreationDate = new Date(firstMessageTimestamp);
-//     const currentDate = new Date();
-//     const ageInMilliseconds = currentDate - accountCreationDate;
-//     const ageInDays = ageInMilliseconds / (1000 * 60 * 60 * 24);
-//     return `${Math.floor(ageInDays)} days`;
-// };
 
 // Function to calculate leaderboard
 const calculateLeaderboard = (updates) => {
