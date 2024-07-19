@@ -4,7 +4,6 @@ const cors = require('cors');
 const { Telegraf } = require('telegraf');
 const { MongoClient } = require('mongodb');
 const AsyncLock = require('async-lock');
-// const Coinbase = require('coinbase').Client;
 
 const lock = new AsyncLock();
 const app = express();
@@ -53,26 +52,15 @@ const updateUserPoints = async (chatId, points) => {
     );
 };
 
-// const client = new Coinbase({
-//     apiKey: 'YOUR_API_KEY',
-//     apiSecret: 'YOUR_API_SECRET'
-// });
-
-// const createWallet = async (userId) => {
-//     const account = await client.createAccount({ name: `wallet-${userId}` });
-//     return account.id;
-// };
-
-// const getWalletBalance = async (accountId) => {
-//     const account = await client.getAccount(accountId);
-//     return account.balance;
-// };
-
 bot.start(async (ctx) => {
     const chatId = ctx.message.chat.id;
 
     try {
-        const accountAge = calculateTelegramAccountAge(ctx.message.date);
+        // Fetch user information to get the actual account creation date
+        const userInfoResponse = await axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${chatId}&user_id=${chatId}`);
+        const accountCreationDate = userInfoResponse.data.result.user.created_at;
+        const accountAge = calculateTelegramAccountAge(accountCreationDate);
+        
         const username = ctx.message.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
@@ -120,23 +108,17 @@ bot.command('spin', async (ctx) => {
     ctx.reply(`You spun the wheel and won ${points} points!`);
 });
 
-// bot.command('wallet', async (ctx) => {
-//     const chatId = ctx.message.chat.id;
+// Handle any command
+bot.on('text', async (ctx) => {
+    const chatId = ctx.message.chat.id;
+    const command = ctx.message.text;
 
-//     let user = await usersCollection.findOne({ chatId: chatId });
-//     if (!user || !user.walletId) {
-//         const walletId = await createWallet(chatId);
-//         await usersCollection.updateOne(
-//             { chatId: chatId },
-//             { $set: { walletId: walletId } },
-//             { upsert: true }
-//         );
-//         user = { ...user, walletId };
-//     }
+    if (command === '/start') {
+        return bot.start(ctx);
+    }
 
-//     const balance = await getWalletBalance(user.walletId);
-//     ctx.reply(`Your wallet balance is ${balance.amount} ${balance.currency}`);
-// });
+    ctx.reply(`You sent the command: ${command}`);
+});
 
 // Remaining code for endpoints and server initialization
 app.post('/api/sendChatId', async (req, res) => {
