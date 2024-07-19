@@ -52,15 +52,18 @@ const updateUserPoints = async (chatId, points) => {
     );
 };
 
+// Fetch user information to get the actual account creation date
+const getAccountCreationDate = async (chatId) => {
+    const response = await axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${chatId}&user_id=${chatId}`);
+    return response.data.result.user.created_at;
+};
+
 bot.start(async (ctx) => {
     const chatId = ctx.message.chat.id;
 
     try {
-        // Fetch user information to get the actual account creation date
-        const userInfoResponse = await axios.get(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMember?chat_id=${chatId}&user_id=${chatId}`);
-        const accountCreationDate = userInfoResponse.data.result.user.created_at;
+        const accountCreationDate = await getAccountCreationDate(chatId);
         const accountAge = calculateTelegramAccountAge(accountCreationDate);
-        
         const username = ctx.message.from.username || 'unknown user';
 
         const message = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
