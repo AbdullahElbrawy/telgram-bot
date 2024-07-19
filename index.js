@@ -25,6 +25,9 @@ MongoClient.connect(mongoUrl, { useNewUrlParser: true, useUnifiedTopology: true 
         db = client.db(dbName);
         usersCollection = db.collection('users');
         console.log('Connected to MongoDB');
+
+        const PORT = 3000;
+        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
     .catch(error => console.error('Failed to connect to MongoDB:', error));
 
@@ -140,8 +143,11 @@ app.post('/api/sendChatId', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch user data' });
     }
 });
-
 app.get('/data/:username/:accountAge?', async (req, res) => {
+    if (!usersCollection) {
+        return res.status(500).json({ error: 'Database connection is not established yet. Please try again later.' });
+    }
+
     const username = req.params.username;
     const accountAge = req.params.accountAge ? parseInt(req.params.accountAge) : null;
 
@@ -193,6 +199,7 @@ app.get('/data/:username/:accountAge?', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch user data' });
     }
 });
+
 
 app.get('/leaderboard', async (req, res) => {
     try {
