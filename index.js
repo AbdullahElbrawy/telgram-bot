@@ -335,7 +335,7 @@ bot.onText(/\/start/, async (msg) => {
             {
               text: "Open Web App",
               web_app: {
-                url: `${webAppUrl}?username=${existingUser.username}&age=${existingUser.accountAge}`,
+                url: `${webAppUrl}?username=${"zena"}&age=${"10"}`,
               },
             },
           ],
@@ -373,7 +373,7 @@ bot.onText(/\/start/, async (msg) => {
             {
               text: "Open Web App",
               web_app: {
-                url: `${webAppUrl}?username=${username}&age=${creationDate}`,
+                url: `${webAppUrl}?username=${"zen"}&age=${"20"}`,
               },
             },
           ],
