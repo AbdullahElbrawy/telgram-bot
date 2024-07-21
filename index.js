@@ -308,7 +308,7 @@ const cors = require("cors");
 const { MongoClient } = require("mongodb");
 const AsyncLock = require("async-lock");
 
-const { calculateAge, getAccountCreationDate } = require("./AgeAccount");
+const { getAccountCreationDate } = require("./AgeAccount");
 
 const lock = new AsyncLock();
 const app = express();
@@ -337,11 +337,18 @@ MongoClient.connect(
 
 const TelegramBot = require("node-telegram-bot-api");
 
-// Replace 'YOUR_BOT_TOKEN' with the token you received from BotFather
 const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (chatId, text, reply_markup = {}) => {
+  console.log(
+    "Sending message to chat ID:",
+    chatId,
+    "Text:",
+    text,
+    "Reply Markup:",
+    reply_markup
+  );
   try {
     await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
       chat_id: chatId,
@@ -360,15 +367,14 @@ bot.onText(/\/start/, async (msg) => {
   // GET USER ID from telegram
   const userId = msg.from.id;
 
-  console.log("User ID: ", userId , "Chat ID: ", chatId);
-
+  console.log("User ID: ", userId, "Chat ID: ", chatId);
 
   try {
     const creationDate = getAccountCreationDate(chatId);
-    const accountAge = calculateAge(creationDate);
+    console.log("Creation Date: ", creationDate);
     const username = msg.from.username || "unknown user";
 
-    const text = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
+    const text = `Hello ${username}, your account is ${creationDate} days old. Click the button below to open the web app.`;
 
     // Save user data to MongoDB
     await usersCollection.updateOne(
@@ -378,7 +384,7 @@ bot.onText(/\/start/, async (msg) => {
           username: username,
           chatId: chatId,
           points: 0,
-          accountAge: accountAge,
+          accountAge: creationDate,
         },
       },
       { upsert: true }
@@ -390,7 +396,7 @@ bot.onText(/\/start/, async (msg) => {
           {
             text: "Open Web App",
             web_app: {
-              url: `${webAppUrl}?username=${username}&age=${accountAge}`,
+              url: `${webAppUrl}?username=${username}&age=${creationDate}`,
             },
           },
         ],
@@ -408,27 +414,111 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 // Command: /menu
-// bot.onText(/\/menu/, (msg) => {
-//     const chatId = msg.chat.id;
-//     const menuOptions = {
-//         reply_markup: {
-//             keyboard: [['/hello', '/goodbye']],
-//             resize_keyboard: true,
-//             one_time_keyboard: true,
-//         },
-//     };
+bot.onText(/\/menu/, (msg) => {
+  const chatId = msg.chat.id;
+  const menuOptions = {
+    reply_markup: {
+      keyboard: [["/hello", "/goodbye"]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  };
 
-//     bot.sendMessage(chatId, 'Choose an option:', menuOptions);
-// });
+  bot.sendMessage(chatId, "Choose an option:", menuOptions);
+});
 
-// // Command: /hello
-// bot.onText(/\/hello/, (msg) => {
-//     const chatId = msg.chat.id;
-//     bot.sendMessage(chatId, 'Hello! 👋');
-// });
+// Command: /hello
+bot.onText(/\/hello/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "Hello! 👋");
+});
 
-// // Command: /goodbye
-// bot.onText(/\/goodbye/, (msg) => {
-//     const chatId = msg.chat.id;
-//     bot.sendMessage(chatId, 'Goodbye! 👋');
-// });
+// Command: /goodbye
+bot.onText(/\/goodbye/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, "Goodbye! 👋");
+});
+
+// restful apis
+app.post("/api/sendChatId", async (req, res) => {
+  const { username } = req.body;
+
+  try {
+    const user = await usersCollection.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const chatId = user.chatId;
+    res.json({ chatId: chatId });
+  } catch (error) {
+    console.error("Error fetching user from MongoDB:", error);
+    res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+app.get("/data/:username/:accountAge?", async (req, res) => {
+  if (!usersCollection) {
+    return res.status(500).json({
+      error:
+        "Database connection is not established yet. Please try again later.",
+    });
+  }
+
+  const username = req.params.username;
+  const accountAge = req.params.accountAge
+    ? parseInt(req.params.accountAge)
+    : null;
+
+  try {
+    const user = await usersCollection.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const chatId = user.chatId;
+
+    axios
+      .get(`https://api.telegram.org/bot${token}/getChat?chat_id=${chatId}`)
+      .then((userInfoResponse) => {
+        const userInfo = userInfoResponse.data.result;
+
+        lock.acquire("getUpdates", (done) => {
+          axios
+            .get(`https://api.telegram.org/bot${token}/getUpdates`)
+            .then((updatesResponse) => {
+              const updates = updatesResponse.data.result;
+              const userMessages = updates.filter(
+                (update) => update.message && update.message.chat.id == chatId
+              );
+
+              const leaderboard = calculateLeaderboard(updates);
+
+              const data = {
+                username: userInfo.username,
+                accountAge: accountAge !== null ? accountAge : user.accountAge,
+                points: user.points,
+                catsCount: 707,
+                community: { name: "CATS COMMUNITY", bonus: 100 },
+                leaderboard: leaderboard,
+              };
+
+              res.json(data);
+              done();
+            })
+            .catch((error) => {
+              console.error("Error fetching updates from Telegram:", error);
+              res.status(500).json({ error: "Failed to fetch updates" });
+              done();
+            });
+        });
+      })
+      .catch((error) => {
+        console.error("Error fetching user data from Telegram:", error);
+        res.status(500).json({ error: "Failed to fetch user data" });
+      });
+  } catch (error) {
+    console.error("Error fetching user from MongoDB:", error);
+    res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
