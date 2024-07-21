@@ -342,14 +342,26 @@ const TelegramBot = require('node-telegram-bot-api');
 const token = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw';
 const bot = new TelegramBot(token, { polling: true });
 
+const sendMessage = async (chatId, text, reply_markup = {}) => {
+    try {
+      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+        chat_id: chatId,
+        text: text,
+        reply_markup: reply_markup
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
 // Command: /start
 bot.onText(/\/start/, async (msg) => {
     
-      const chatId = message.chat.id;
+      const chatId = msg.chat.id;
   try {
     const creationDate = getAccountCreationDate(chatId);
     const accountAge = calculateAge(creationDate);
-    const username = message.from.username || 'unknown user';
+    const username = msg.from.username || 'unknown user';
 
     const text = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
 
