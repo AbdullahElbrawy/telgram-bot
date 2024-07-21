@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -10,10 +12,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const BOT_TOKEN = process.env.Bot; // Replace with your Telegram bot token
-const webAppUrl = process.env.Front; // Replace with the actual URL of your React app
-
+const BOT_TOKEN = process.env.Bot;
+const webAppUrl = process.env.Front;
 const mongoUrl = process.env.Mongo;
+
+if (!BOT_TOKEN || !webAppUrl || !mongoUrl) {
+    console.error("Missing required environment variables. Please check your .env file.");
+    process.exit(1);
+}
+
 const dbName = 'points';
 let db, usersCollection;
 
@@ -293,5 +300,5 @@ const getMedal = (rank) => {
   return '';
 };
 
-const PORT = 3000;
+const PORT = 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
