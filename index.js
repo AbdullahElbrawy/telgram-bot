@@ -13,7 +13,6 @@
 // app.use(express.json());
 
 // const BOT_TOKEN = process.env.Bot;
-// const webAppUrl = process.env.Front;
 // const mongoUrl = process.env.Mongo;
 
 // if (!BOT_TOKEN || !webAppUrl || !mongoUrl) {
@@ -303,88 +302,109 @@
 // const PORT = 3001;
 // app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const { MongoClient } = require('mongodb');
-const AsyncLock = require('async-lock');
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+const { MongoClient } = require("mongodb");
+const AsyncLock = require("async-lock");
 
-
-const { calculateAge ,getAccountCreationDate} =  require('./AgeAccount');
+const { calculateAge, getAccountCreationDate } = require("./AgeAccount");
 
 const lock = new AsyncLock();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+const dbName = "points";
+const webAppUrl = "https://telegram-front-three.vercel.app/";
 
-
-const dbName = 'points';
 let db, usersCollection;
 
 // Initialize MongoDB connection
-MongoClient.connect('mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/', { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(client => {
-        db = client.db(dbName);
-        usersCollection = db.collection('users');
-        console.log('Connected to MongoDB');
+MongoClient.connect(
+  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/",
+  { useNewUrlParser: true, useUnifiedTopology: true }
+)
+  .then((client) => {
+    db = client.db(dbName);
+    usersCollection = db.collection("users");
+    console.log("Connected to MongoDB");
 
-        const PORT = 3000;
-        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    })
-    .catch(error => console.error('Failed to connect to MongoDB:', error));
+    const PORT = 3000;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch((error) => console.error("Failed to connect to MongoDB:", error));
 
-
-
-const TelegramBot = require('node-telegram-bot-api');
+const TelegramBot = require("node-telegram-bot-api");
 
 // Replace 'YOUR_BOT_TOKEN' with the token you received from BotFather
-const token = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw';
+const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (chatId, text, reply_markup = {}) => {
-    try {
-      await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
-        chat_id: chatId,
-        text: text,
-        reply_markup: reply_markup
-      });
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
+  try {
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+      chat_id: chatId,
+      text: text,
+      reply_markup: reply_markup,
+    });
+  } catch (error) {
+    console.error("Error sending message:", error);
+  }
+};
 
 // Command: /start
 bot.onText(/\/start/, async (msg) => {
-    
-      const chatId = msg.chat.id;
+  const chatId = msg.chat.id;
+
+  // GET USER ID from telegram
+  const userId = msg.from.id;
+
+  console.log("User ID: ", userId , "Chat ID: ", chatId);
+
+
   try {
     const creationDate = getAccountCreationDate(chatId);
     const accountAge = calculateAge(creationDate);
-    const username = msg.from.username || 'unknown user';
+    const username = msg.from.username || "unknown user";
 
     const text = `Hello ${username}, your account is ${accountAge} days old. Click the button below to open the web app.`;
 
     // Save user data to MongoDB
     await usersCollection.updateOne(
       { chatId: chatId },
-      { $set: { username: username, chatId: chatId, points: 0, accountAge: accountAge } },
+      {
+        $set: {
+          username: username,
+          chatId: chatId,
+          points: 0,
+          accountAge: accountAge,
+        },
+      },
       { upsert: true }
     );
 
     const replyMarkup = {
       inline_keyboard: [
-        [{ text: 'Open Web App', web_app: { url: `${webAppUrl}?username=${username}&age=${accountAge}` } }]
-      ]
+        [
+          {
+            text: "Open Web App",
+            web_app: {
+              url: `${webAppUrl}?username=${username}&age=${accountAge}`,
+            },
+          },
+        ],
+      ],
     };
 
     await sendMessage(chatId, text, replyMarkup);
   } catch (err) {
-    await sendMessage(chatId, 'Failed to retrieve chat information. Please try again later.');
-    console.error('Failed to retrieve chat information:', err);
+    await sendMessage(
+      chatId,
+      "Failed to retrieve chat information. Please try again later."
+    );
+    console.error("Failed to retrieve chat information:", err);
   }
-
-
 });
 
 // Command: /menu
