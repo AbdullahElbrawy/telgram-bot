@@ -15,7 +15,7 @@ const getAccountCreationDate = (id) => {
       }
     }
   }
-  return "2024";
+  return "jan 2024";
 };
 
 // function to get points based on the account creation date
