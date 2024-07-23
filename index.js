@@ -26,6 +26,7 @@ MongoClient.connect(
   .then((client) => {
     db = client.db(dbName);
     usersCollection = db.collection("users");
+    console.log(usersCollection)
     console.log("Connected to MongoDB");
 
     const PORT = 3000;
@@ -36,7 +37,7 @@ MongoClient.connect(
 const TelegramBot = require("node-telegram-bot-api");
 
 const token = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw';
-const bot = new TelegramBot(token, { polling: false });
+const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (userId, text, reply_markup = {}) => {
   console.log(
@@ -234,7 +235,7 @@ app.post("/api/register", async (req, res) => {
 });
 
 app.post("/api/spin", async (req, res) => {
-  const { userId } = req.body;
+  const { userId,bonusPoints } = req.body;
 
   try {
     const user = await usersCollection.findOne({ userId: userId });
@@ -250,7 +251,7 @@ app.post("/api/spin", async (req, res) => {
       return res.status(400).json({ error: "You have already used your spin today." });
     }
 
-    const bonusPoints = spinForPoints();
+
     await usersCollection.updateOne(
       { userId: userId },
       { $inc: { points: bonusPoints }, $set: { lastSpinDate: today.toDate() } }
@@ -262,6 +263,7 @@ app.post("/api/spin", async (req, res) => {
     res.status(500).json({ error: "Failed to process spin. Please try again later." });
   }
 });
+
 
 app.get("/data/:username/:accountAge?", async (req, res) => {
   if (!usersCollection) {
@@ -379,10 +381,10 @@ const getMedal = (rank) => {
   return "";
 };
 
-const spinForPoints = () => {
-  const pointsArray = [10, 20, 50, 100]; // Different points a user can win
-  const randomIndex = Math.floor(Math.random() * pointsArray.length);
-  return pointsArray[randomIndex];
-};
+// const spinForPoints = () => {
+//   const pointsArray = [10, 20, 50, 100]; // Different points a user can win
+//   const randomIndex = Math.floor(Math.random() * pointsArray.length);
+//   return pointsArray[randomIndex];
+// };
 
 app.listen(3001);
