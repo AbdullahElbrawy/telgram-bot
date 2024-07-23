@@ -3,6 +3,8 @@ const axios = require("axios");
 const cors = require("cors");
 const { MongoClient } = require("mongodb");
 const AsyncLock = require("async-lock");
+const crypto = require("crypto");
+const moment = require("moment");
 
 const { getAccountCreationDate, getPoints } = require("./AgeAccount");
 
@@ -56,11 +58,16 @@ const sendMessage = async (userId, text, reply_markup = {}) => {
   }
 };
 
+// Generate a unique referral code
+const generateReferralCode = () => {
+  return crypto.randomBytes(4).toString('hex');
+};
+
 // Command: /start
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   const userId = msg.from.id;
-  const referredBy = match[1]; // Get referral ID if present
-  console.log("User ID: ", userId, "Referred By: ", referredBy);
+  const referralCode = match[1]; // Get referral code if present
+  console.log("User ID: ", userId, "Referred By: ", referralCode);
 
   try {
     const username = msg.from.username || "unknown user";
@@ -69,39 +76,29 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     if (existingUser) {
       const text = `Hello ${existingUser.username}, Registered in ${existingUser.accountAge}. 
       and have points ${existingUser.points}.
-      Click the button below to open the web app.`;
-
-      const replyMarkup = {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Web App",
-              web_app: {
-                url: `${webAppUrl}?username=${existingUser.username}&age=${existingUser.accountAge}`,
-              },
-            },
-          ],
-        ],
-      };
-
-      await sendMessage(userId, text, replyMarkup);
+      Your referral link is: ${webAppUrl}?ref=${existingUser.referralCode}`;
+      
+      await sendMessage(userId, text);
     } else {
       const creationDate = getAccountCreationDate(userId);
       const myPoints = getPoints(creationDate);
+      const newReferralCode = generateReferralCode();
 
       console.log(username, creationDate, myPoints);
 
       const text = `Hello ${username}, Registered in ${creationDate}. 
       and have points ${myPoints}.
-      Click the button below to open the web app.`;
+      Your referral link is: ${webAppUrl}?ref=${newReferralCode}`;
 
       const userDoc = {
         username: username,
         userId: userId,
         points: myPoints || 0,
         accountAge: creationDate,
-        referredBy: referredBy || null,
+        referredBy: referralCode || null,
         hasSpun: false, // Initialize spin flag
+        referralCode: newReferralCode, // Set referral code
+        lastSpinDate: null, // Initialize last spin date
       };
 
       // Save user data to MongoDB
@@ -111,35 +108,22 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         { upsert: true }
       );
 
-      if (referredBy) {
+      if (referralCode) {
         // Award bonus points to the referrer
-        await usersCollection.updateOne(
-          { userId: referredBy },
-          { $inc: { points: 10 } }
-        );
-        const referrer = await usersCollection.findOne({ userId: referredBy });
+        const referrer = await usersCollection.findOne({ referralCode: referralCode });
         if (referrer) {
+          await usersCollection.updateOne(
+            { userId: referrer.userId },
+            { $inc: { points: 10 } }
+          );
           await sendMessage(
-            referredBy,
+            referrer.userId,
             `You have received 10 bonus points for referring ${username}. Your total points are now ${referrer.points + 10}.`
           );
         }
       }
 
-      const replyMarkup = {
-        inline_keyboard: [
-          [
-            {
-              text: "Open Web App",
-              web_app: {
-                url: `${webAppUrl}?username=${username}&age=${creationDate}`,
-              },
-            },
-          ],
-        ],
-      };
-
-      await sendMessage(userId, text, replyMarkup);
+      await sendMessage(userId, text);
     }
   } catch (err) {
     await sendMessage(
@@ -176,41 +160,6 @@ bot.onText(/\/goodbye/, (msg) => {
   bot.sendMessage(userId, "Goodbye! 👋");
 });
 
-// Command: /spin
-bot.onText(/\/spin/, async (msg) => {
-  const userId = msg.chat.id;
-
-  try {
-    const user = await usersCollection.findOne({ userId: userId });
-
-    if (!user) {
-      bot.sendMessage(userId, "You need to register first by using /start.");
-      return;
-    }
-
-    if (user.hasSpun) {
-      bot.sendMessage(userId, "You have already used your spin.");
-      return;
-    }
-
-    const bonusPoints = spinForPoints();
-    await usersCollection.updateOne(
-      { userId: userId },
-      { $inc: { points: bonusPoints }, $set: { hasSpun: true } }
-    );
-
-    bot.sendMessage(
-      userId,
-      `Congratulations! You have won ${bonusPoints} bonus points. Your total points are now ${
-        user.points + bonusPoints
-      }.`
-    );
-  } catch (error) {
-    console.error("Failed to process spin:", error);
-    bot.sendMessage(userId, "Failed to process spin. Please try again later.");
-  }
-});
-
 // RESTful APIs
 app.post("/api/sendChatId", async (req, res) => {
   const { username } = req.body;
@@ -226,6 +175,91 @@ app.post("/api/sendChatId", async (req, res) => {
   } catch (error) {
     console.error("Error fetching user from MongoDB:", error);
     res.status(500).json({ error: "Failed to fetch user data" });
+  }
+});
+
+// New endpoint to handle user registration with referral code
+app.post("/api/register", async (req, res) => {
+  const { username, referralCode } = req.body;
+  const userId = crypto.randomBytes(4).toString('hex'); // Generate a unique userId for this example
+
+  try {
+    const existingUser = await usersCollection.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ error: "Username already exists" });
+    }
+
+    const creationDate = getAccountCreationDate(userId);
+    const myPoints = getPoints(creationDate);
+    const newReferralCode = generateReferralCode();
+
+    const userDoc = {
+      username: username,
+      userId: userId,
+      points: myPoints || 0,
+      accountAge: creationDate,
+      referredBy: referralCode || null,
+      hasSpun: false,
+      referralCode: newReferralCode,
+      lastSpinDate: null, // Initialize last spin date
+    };
+
+    // Save user data to MongoDB
+    await usersCollection.updateOne(
+      { userId: userId },
+      { $set: userDoc },
+      { upsert: true }
+    );
+
+    if (referralCode) {
+      // Award bonus points to the referrer
+      const referrer = await usersCollection.findOne({ referralCode: referralCode });
+      if (referrer) {
+        await usersCollection.updateOne(
+          { userId: referrer.userId },
+          { $inc: { points: 10 } }
+        );
+        await sendMessage(
+          referrer.userId,
+          `You have received 10 bonus points for referring ${username}. Your total points are now ${referrer.points + 10}.`
+        );
+      }
+    }
+
+    res.json({ message: "Registration successful", user: userDoc });
+  } catch (error) {
+    console.error("Error registering user:", error);
+    res.status(500).json({ error: "Failed to register user" });
+  }
+});
+
+app.post("/api/spin", async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const user = await usersCollection.findOne({ userId: userId });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const today = moment().startOf('day');
+    const lastSpinDate = user.lastSpinDate ? moment(user.lastSpinDate).startOf('day') : null;
+
+    if (lastSpinDate && today.isSame(lastSpinDate)) {
+      return res.status(400).json({ error: "You have already used your spin today." });
+    }
+
+    const bonusPoints = spinForPoints();
+    await usersCollection.updateOne(
+      { userId: userId },
+      { $inc: { points: bonusPoints }, $set: { lastSpinDate: today.toDate() } }
+    );
+
+    res.json({ message: `Congratulations! You have won ${bonusPoints} bonus points.`, totalPoints: user.points + bonusPoints });
+  } catch (error) {
+    console.error("Failed to process spin:", error);
+    res.status(500).json({ error: "Failed to process spin. Please try again later." });
   }
 });
 
@@ -350,3 +384,5 @@ const spinForPoints = () => {
   const randomIndex = Math.floor(Math.random() * pointsArray.length);
   return pointsArray[randomIndex];
 };
+
+app.listen(3001);
