@@ -26,8 +26,6 @@ MongoClient.connect(
   .then((client) => {
     db = client.db(dbName);
     usersCollection = db.collection("users");
-    console.log(usersCollection)
-    console.log("Connected to MongoDB");
 
     const PORT = 3000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
@@ -36,7 +34,7 @@ MongoClient.connect(
 
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = '6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw';
+const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (userId, text, reply_markup = {}) => {
@@ -61,7 +59,7 @@ const sendMessage = async (userId, text, reply_markup = {}) => {
 
 // Generate a unique referral code
 const generateReferralCode = () => {
-  return crypto.randomBytes(4).toString('hex');
+  return crypto.randomBytes(4).toString("hex");
 };
 
 // Command: /start
@@ -78,7 +76,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
       const text = `Hello ${existingUser.username}, Registered in ${existingUser.accountAge}. 
       and have points ${existingUser.points}.
       Your referral link is: ${webAppUrl}?ref=${existingUser.referralCode}`;
-      
+
       await sendMessage(userId, text);
     } else {
       const creationDate = getAccountCreationDate(userId);
@@ -100,6 +98,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         hasSpun: false, // Initialize spin flag
         referralCode: newReferralCode, // Set referral code
         lastSpinDate: null, // Initialize last spin date
+        luckySpin: [], // Initialize lucky
       };
 
       // Save user data to MongoDB
@@ -111,7 +110,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
       if (referralCode) {
         // Award bonus points to the referrer
-        const referrer = await usersCollection.findOne({ referralCode: referralCode });
+        const referrer = await usersCollection.findOne({
+          referralCode: referralCode,
+        });
         if (referrer) {
           await usersCollection.updateOne(
             { userId: referrer.userId },
@@ -119,7 +120,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
           );
           await sendMessage(
             referrer.userId,
-            `You have received 10 bonus points for referring ${username}. Your total points are now ${referrer.points + 10}.`
+            `You have received 10 bonus points for referring ${username}. Your total points are now ${
+              referrer.points + 10
+            }.`
           );
         }
       }
@@ -134,8 +137,6 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     console.error("Failed to retrieve chat information:", err);
   }
 });
-
-
 
 // RESTful APIs
 app.post("/api/sendChatId", async (req, res) => {
@@ -158,7 +159,7 @@ app.post("/api/sendChatId", async (req, res) => {
 // New endpoint to handle user registration with referral code
 app.post("/api/register", async (req, res) => {
   const { username, referralCode } = req.body;
-  const userId = crypto.randomBytes(4).toString('hex'); // Generate a unique userId for this example
+  const userId = crypto.randomBytes(4).toString("hex"); // Generate a unique userId for this example
 
   try {
     const existingUser = await usersCollection.findOne({ username });
@@ -178,7 +179,8 @@ app.post("/api/register", async (req, res) => {
       referredBy: referralCode || null,
       hasSpun: false,
       referralCode: newReferralCode,
-      lastSpinDate: null, // Initialize last spin date
+      lastSpinDate: null,
+      luckySpin: [], // Initialize lucky
     };
 
     // Save user data to MongoDB
@@ -190,7 +192,9 @@ app.post("/api/register", async (req, res) => {
 
     if (referralCode) {
       // Award bonus points to the referrer
-      const referrer = await usersCollection.findOne({ referralCode: referralCode });
+      const referrer = await usersCollection.findOne({
+        referralCode: referralCode,
+      });
       if (referrer) {
         await usersCollection.updateOne(
           { userId: referrer.userId },
@@ -198,7 +202,9 @@ app.post("/api/register", async (req, res) => {
         );
         await sendMessage(
           referrer.userId,
-          `You have received 10 bonus points for referring ${username}. Your total points are now ${referrer.points + 10}.`
+          `You have received 10 bonus points for referring ${username}. Your total points are now ${
+            referrer.points + 10
+          }.`
         );
       }
     }
@@ -211,7 +217,7 @@ app.post("/api/register", async (req, res) => {
 });
 
 app.post("/api/spin", async (req, res) => {
-  const { userId,bonusPoints } = req.body;
+  const { userId, bonusPoints } = req.body;
 
   try {
     const user = await usersCollection.findOne({ userId: userId });
@@ -220,26 +226,39 @@ app.post("/api/spin", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const today = moment().startOf('day');
-    const lastSpinDate = user.lastSpinDate ? moment(user.lastSpinDate).startOf('day') : null;
+    const today = moment().startOf("day").format("YYYY-MM-DD");
 
-    if (lastSpinDate && today.isSame(lastSpinDate)) {
-      return res.status(400).json({ error: "You have already used your spin today." });
+    // Check if today's date is already in the luckySpin array
+    const hasSpunToday =
+      user.luckySpin && user.luckySpin.some((spin) => spin.date === today);
+
+    if (hasSpunToday) {
+      return res
+        .status(400)
+        .json({ error: "You have already used your spin today." });
     }
 
-
+    // Update the user's luckySpin array and points
+    const newSpinEntry = { date: today, bonusPoints: bonusPoints };
     await usersCollection.updateOne(
       { userId: userId },
-      { $inc: { points: bonusPoints }, $set: { lastSpinDate: today.toDate() } }
+      {
+        $inc: { points: bonusPoints },
+        $push: { luckySpin: newSpinEntry },
+      }
     );
-
-    res.json({ message: `Congratulations! You have won ${bonusPoints} bonus points.`, totalPoints: user.points + bonusPoints });
+    console.log("User spun successfully:", newSpinEntry);
+    res.json({
+      message: `Congratulations! You have won ${bonusPoints} bonus points.`,
+      totalPoints: user.points + bonusPoints,
+    });
   } catch (error) {
     console.error("Failed to process spin:", error);
-    res.status(500).json({ error: "Failed to process spin. Please try again later." });
+    res
+      .status(500)
+      .json({ error: "Failed to process spin. Please try again later." });
   }
 });
-
 
 app.get("/data/:username/:accountAge?", async (req, res) => {
   if (!usersCollection) {
@@ -251,8 +270,6 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
 
   const username = req.params.username;
   const accountAge = req.params.accountAge
- 
-
     ? parseInt(req.params.accountAge)
     : null;
 
@@ -264,10 +281,22 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
 
     const userId = user.userId;
 
+    // Determine if the user can spin today
+    const today = moment().startOf("day").format("YYYY-MM-DD");
+
+    console.log("User:", user);
+    console.log("Today:", today);
+
+    const hasUserSpunToday =
+      user.luckySpin && user.luckySpin.some((spin) => spin.date === today);
+    const hasSpunToday = hasUserSpunToday;
+
     axios
       .get(`https://api.telegram.org/bot${token}/getChat?chat_id=${userId}`)
       .then((userInfoResponse) => {
         const userInfo = userInfoResponse.data.result;
+
+        console.log("User Info:", userInfo);
 
         lock.acquire("getUpdates", (done) => {
           axios
@@ -277,17 +306,15 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
               const userMessages = updates.filter(
                 (update) => update.message && update.message.chat.id == userId
               );
-
-              const leaderboard = calculateLeaderboard(updates);
-
               const data = {
                 username: userInfo.username,
                 accountAge: accountAge !== null ? accountAge : user.accountAge,
                 points: user.points,
-                catsCount: 707,
-                community: { name: "CATS COMMUNITY", bonus: 100 },
-                leaderboard: leaderboard,
-                userId:userInfo.userId
+                community: { name: "Lions COMMUNITY", bonus: 100 },
+                userId: userInfo.id,
+                hasSpunToday: hasSpunToday,
+                luckySpin: user.luckySpin,
+                // Include the flagKey in the response
               };
 
               res.json(data);
@@ -327,7 +354,7 @@ app.post("/leaderboard", async (req, res) => {
         name: user.username,
         score: user.points,
         medal: getMedal(index + 1),
-        userId: user.userId
+        userId: user.userId,
       };
     });
 
@@ -336,7 +363,7 @@ app.post("/leaderboard", async (req, res) => {
       name: user ? user.username : null,
       score: user ? user.points : null,
       medal: userRank !== -1 ? getMedal(userRank) : null,
-      userId: userId
+      userId: userId,
     };
 
     res.json({ leaderboard, leaderboardUser });
