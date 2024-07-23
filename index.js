@@ -135,31 +135,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
   }
 });
 
-// Command: /menu
-bot.onText(/\/menu/, (msg) => {
-  const userId = msg.chat.id;
-  const menuOptions = {
-    reply_markup: {
-      keyboard: [["/hello", "/goodbye", "/spin"]],
-      resize_keyboard: true,
-      one_time_keyboard: true,
-    },
-  };
 
-  bot.sendMessage(userId, "Choose an option:", menuOptions);
-});
-
-// Command: /hello
-bot.onText(/\/hello/, (msg) => {
-  const userId = msg.chat.id;
-  bot.sendMessage(userId, "Hello! 👋");
-});
-
-// Command: /goodbye
-bot.onText(/\/goodbye/, (msg) => {
-  const userId = msg.chat.id;
-  bot.sendMessage(userId, "Goodbye! 👋");
-});
 
 // RESTful APIs
 app.post("/api/sendChatId", async (req, res) => {
@@ -275,6 +251,8 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
 
   const username = req.params.username;
   const accountAge = req.params.accountAge
+ 
+
     ? parseInt(req.params.accountAge)
     : null;
 
@@ -331,20 +309,39 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
   }
 });
 
-app.get("/leaderboard", async (req, res) => {
+app.post("/leaderboard", async (req, res) => {
+  const { userId } = req.body;
+
   try {
     const users = await usersCollection.find().sort({ points: -1 }).toArray();
+    const user = await usersCollection.findOne({ userId: userId });
 
-    const leaderboard = users.map((user, index) => ({
-      rank: index + 1,
-      name: user.username,
-      score: user.points,
-      medal: getMedal(index + 1),
-    }));
+    let userRank = -1;
+    const leaderboard = users.map((user, index) => {
+      if (user.userId === userId) {
+        userRank = index + 1;
+      }
+      return {
+        rank: index + 1,
+        name: user.username,
+        score: user.points,
+        medal: getMedal(index + 1),
+        userId: user.userId
+      };
+    });
 
-    res.json(leaderboard);
+    const leaderboardUser = {
+      rank: userRank,
+      name: user ? user.username : null,
+      score: user ? user.points : null,
+      medal: userRank !== -1 ? getMedal(userRank) : null,
+      userId: userId
+    };
+
+    res.json({ leaderboard, leaderboardUser });
   } catch (error) {
     console.error("Failed to retrieve leaderboard data:", error);
+    res.status(500).json({ message: "Failed to retrieve leaderboard data" });
   }
 });
 
