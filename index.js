@@ -287,6 +287,7 @@ app.get("/data/:username/:accountAge?", async (req, res) => {
                 catsCount: 707,
                 community: { name: "CATS COMMUNITY", bonus: 100 },
                 leaderboard: leaderboard,
+                userId:userInfo.userId
               };
 
               res.json(data);
