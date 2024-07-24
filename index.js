@@ -19,18 +19,24 @@ const webAppUrl = "https://telegram-front-three.vercel.app/";
 let db, usersCollection;
 
 // Initialize MongoDB connection
-MongoClient.connect(
-  "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/",
-  { useNewUrlParser: true, useUnifiedTopology: true }
-)
-  .then((client) => {
+const initMongoDB = async () => {
+  try {
+    const client = await MongoClient.connect(
+      "mongodb+srv://sarga:A111a111@cluster0.fjdnf.mongodb.net/",
+      { useNewUrlParser: true, useUnifiedTopology: true }
+    );
     db = client.db(dbName);
     usersCollection = db.collection("users");
+    console.log("Connected to MongoDB");
 
     const PORT = 3000;
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch((error) => console.error("Failed to connect to MongoDB:", error));
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+  }
+};
+
+initMongoDB();
 
 const TelegramBot = require("node-telegram-bot-api");
 
@@ -70,6 +76,11 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
   try {
     const username = msg.from.username || "unknown user";
+
+    if (!usersCollection) {
+      throw new Error("Database connection not initialized");
+    }
+
     const existingUser = await usersCollection.findOne({ userId: userId });
 
     if (existingUser) {
@@ -143,6 +154,10 @@ app.post("/api/sendChatId", async (req, res) => {
   const { username } = req.body;
 
   try {
+    if (!usersCollection) {
+      throw new Error("Database connection not initialized");
+    }
+
     const user = await usersCollection.findOne({ username });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -162,6 +177,10 @@ app.post("/api/register", async (req, res) => {
   const userId = crypto.randomBytes(4).toString("hex"); // Generate a unique userId for this example
 
   try {
+    if (!usersCollection) {
+      throw new Error("Database connection not initialized");
+    }
+
     const existingUser = await usersCollection.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ error: "Username already exists" });
@@ -220,6 +239,10 @@ app.post("/api/spin", async (req, res) => {
   const { userId, bonusPoints } = req.body;
 
   try {
+    if (!usersCollection) {
+      throw new Error("Database connection not initialized");
+    }
+
     const user = await usersCollection.findOne({ userId: userId });
 
     if (!user) {
@@ -341,6 +364,10 @@ app.post("/leaderboard", async (req, res) => {
   const { userId } = req.body;
 
   try {
+    if (!usersCollection) {
+      throw new Error("Database connection not initialized");
+    }
+
     const users = await usersCollection.find().sort({ points: -1 }).toArray();
     const user = await usersCollection.findOne({ userId: userId });
 
