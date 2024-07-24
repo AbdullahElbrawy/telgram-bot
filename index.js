@@ -34,7 +34,7 @@ MongoClient.connect(
 
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
+const token = "YOUR_TELEGRAM_BOT_TOKEN";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (userId, text, reply_markup = {}) => {
@@ -53,7 +53,7 @@ const sendMessage = async (userId, text, reply_markup = {}) => {
       reply_markup: reply_markup,
     });
   } catch (error) {
-    console.error("Error sending message:", error);
+    console.error("Error sending message:", error.response ? error.response.data : error.message);
   }
 };
 
@@ -207,9 +207,9 @@ app.post("/api/register", async (req, res) => {
           }.`
         );
       }
-    } else {
-      res.json({ message: "Registration successful", user: userDoc });
     }
+
+    res.json({ message: "Registration successful", user: userDoc });
   } catch (error) {
     console.error("Error registering user:", error);
     res.status(500).json({ error: "Failed to register user" });
