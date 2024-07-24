@@ -37,7 +37,7 @@ initMongoDB();
 
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = "YOUR_TELEGRAM_BOT_TOKEN";
+const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (userId, text, reply_markup = {}) => {
