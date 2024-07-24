@@ -28,9 +28,6 @@ const initMongoDB = async () => {
     db = client.db(dbName);
     usersCollection = db.collection("users");
     console.log("Connected to MongoDB");
-
-    const PORT = 3000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (error) {
     console.error("Failed to connect to MongoDB:", error);
   }
@@ -40,7 +37,7 @@ initMongoDB();
 
 const TelegramBot = require("node-telegram-bot-api");
 
-const token = "6774203452:AAHCea16A3G4j6CY1FmZuXpYoHHttYbD6Gw";
+const token = "YOUR_TELEGRAM_BOT_TOKEN";
 const bot = new TelegramBot(token, { polling: true });
 
 const sendMessage = async (userId, text, reply_markup = {}) => {
@@ -433,10 +430,4 @@ const getMedal = (rank) => {
   return "";
 };
 
-// const spinForPoints = () => {
-//   const pointsArray = [10, 20, 50, 100]; // Different points a user can win
-//   const randomIndex = Math.floor(Math.random() * pointsArray.length);
-//   return pointsArray[randomIndex];
-// };
-
-app.listen(3001);
+module.exports = app;
